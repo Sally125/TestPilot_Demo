@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+.env
+.env.local
+*.log
+.DS_Store
+dist/
+build/
+generated/.runtime/
+test-results/
+*.pyc
+.idea/
+.vscode/
+*.swp
+*.swo
