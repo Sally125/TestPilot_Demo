@@ -71,6 +71,7 @@ class RunRequest(BaseModel):
     script: str = Field(..., description="Playwright 脚本内容")
     app_url: str | None = Field(default=None, description="被测应用 URL（覆盖配置）")
     timeout: int | None = Field(default=None, description="超时时间（毫秒）")
+    storage_state_path: str | None = Field(default=None, description="storageState 文件路径（覆盖配置）")
 
 
 class RunResponse(BaseModel):
@@ -83,6 +84,25 @@ class RunResponse(BaseModel):
     error: str | None = Field(default=None, description="失败原因（若有）")
 
 
+# ==================== 项目管理 ====================
+
+class ProjectCreate(BaseModel):
+    name: str
+    description: str | None = None
+    appUrl: str | None = None
+    dim: str | None = None
+    techStack: str | None = None
+
+
+class ProjectResponse(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    appUrl: str | None = None
+    dim: str | None = None
+    techStack: str | None = None
+
+
 # ==================== 通用 ====================
 
 class HealthResponse(BaseModel):
@@ -90,3 +110,100 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     has_api_key: bool = False
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ==================== 持久化请求模型 ====================
+
+class RequirementCreate(BaseModel):
+    """创建需求"""
+    title: str
+    content: str
+
+
+class AnalysisSaveRequest(BaseModel):
+    """保存分析结果"""
+    analysis_result: dict
+
+
+class TestCaseCreate(BaseModel):
+    """创建测试用例"""
+    title: str
+    module: str | None = None
+    priority: str = "P1"
+    precondition: str | None = None
+    steps: list | None = None
+    expected: str | None = None
+    script: str | None = None
+    scriptPath: str | None = None
+    requirementId: int | None = None
+
+
+class TestCaseStatusUpdate(BaseModel):
+    """更新用例状态"""
+    status: str
+
+
+class ExecutionRecordCreate(BaseModel):
+    """创建执行记录"""
+    project_id: int
+    case_id: int
+    passed: bool
+    duration_ms: int | None = None
+    error: str | None = None
+    screenshots: list | None = None
+
+
+class ExecutionCreate(BaseModel):
+    """创建执行批次"""
+    batch_id: str | None = None
+    total: int = 0
+
+
+class ExecutionUpdate(BaseModel):
+    """更新执行批次"""
+    status: str | None = None
+    passed: int | None = None
+    failed: int | None = None
+    finished_at: str | None = None
+    items: list | None = None
+
+
+class TestReportCreate(BaseModel):
+    """保存测试报告"""
+    pass_rate: str
+    trends: dict | None = None
+    modules: dict | None = None
+    fails: list | None = None
+
+
+class SettingSaveRequest(BaseModel):
+    """保存系统设置"""
+    value: dict | list | str | int | None = None
+    description: str | None = None
+
+
+# ==================== 评审报告 ====================
+
+class ReviewSuggestion(BaseModel):
+    """改进建议"""
+    case_title: str = Field(..., description="问题所在用例标题")
+    issue: str = Field(..., description="问题描述")
+    suggestion: str = Field(..., description="改进建议")
+    example: str = Field(default="", description="代码示例（可选）")
+
+
+class ReviewRequest(BaseModel):
+    """评审请求"""
+    cases: list[GeneratedCase] = Field(..., description="测试用例列表")
+    feature_points: list[FeaturePoint] = Field(..., description="原始功能点列表")
+
+
+class ReviewResponse(BaseModel):
+    """评审报告响应"""
+    overall_score: int = Field(..., description="综合质量评分 0-100")
+    coverage_score: int = Field(..., description="需求覆盖度评分 0-100")
+    completeness_score: int = Field(..., description="场景完整性评分 0-100")
+    executability_score: int = Field(..., description="可执行性评分 0-100")
+    suggestions: list[ReviewSuggestion] = Field(..., description="改进建议列表（3条）")
+    summary: str = Field(..., description="整体评审摘要")
+    raw: str | None = Field(default=None, description="AI 原始返回（调试用）")

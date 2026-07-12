@@ -8,6 +8,10 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .routes import router
+from .database import engine
+from . import db_models
+
+db_models.Base.metadata.create_all(bind=engine)
 
 settings = get_settings()
 

@@ -64,6 +64,13 @@ class Settings(BaseSettings):
         return path
 
     @property
+    def db_path(self) -> Path:
+        """SQLite数据库文件路径"""
+        path = self.base_dir / "data" / "testpilot.db"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
     def has_api_key(self) -> bool:
         return bool(self.deepseek_api_key and self.deepseek_api_key.startswith("sk-"))
 

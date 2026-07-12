@@ -11,6 +11,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -20,9 +21,11 @@ from .models import (
     FeaturePoint,
     GenerateResponse,
     GeneratedCase,
+    ReviewResponse,
+    ReviewSuggestion,
     RunResponse,
 )
-from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, SYSTEM_PROMPT
+from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, REVIEW_PROMPT, SYSTEM_PROMPT
 
 
 # ============================================================
@@ -60,7 +63,7 @@ class AIService:
             "response_format": {"type": "json_object"},
         }
 
-        max_retries = 5
+        max_retries = 3
         for attempt in range(max_retries):
             try:
                 async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
@@ -77,12 +80,8 @@ class AIService:
                 
                 try:
                     parsed = json.loads(text)
-                    if isinstance(parsed, dict) and "feature_points" in parsed:
-                        if len(parsed["feature_points"]) >= 2:
-                            return text
-                    if isinstance(parsed, dict) and "cases" in parsed:
-                        if len(parsed["cases"]) >= 1:
-                            return text
+                    if isinstance(parsed, dict) and ("feature_points" in parsed or "cases" in parsed):
+                        return text
                     if isinstance(parsed, dict):
                         return text
                 except json.JSONDecodeError:
@@ -108,11 +107,51 @@ class AIService:
                 
             except Exception as e:
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
                 else:
                     raise
 
         return data["choices"][0]["message"]["content"]
+
+    async def chat_stream(self, user_prompt: str, system_prompt: str = SYSTEM_PROMPT):
+        """调用 DeepSeek Chat API，流式返回内容"""
+        if not self.settings.has_api_key:
+            raise RuntimeError(
+                "未配置 DEEPSEEK_API_KEY，请在 .env 文件中填写有效的 API Key"
+            )
+
+        url = f"{self.base_url}/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.settings.deepseek_api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 12000,
+            "response_format": {"type": "json_object"},
+            "stream": True,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
+            async with client.stream("POST", url, headers=headers, json=payload) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if line.strip().startswith("data:"):
+                        data_str = line.strip()[5:].strip()
+                        if data_str == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(data_str)
+                            content = data["choices"][0]["delta"].get("content", "")
+                            if content:
+                                yield content
+                        except (json.JSONDecodeError, KeyError):
+                            continue
 
     async def analyze_requirement(
         self, requirement_text: str, app_url: str | None = None
@@ -165,7 +204,7 @@ class AIService:
         base_prompt = GENERATE_PROMPT.format(
             feature_points_json=fp_json,
             app_name="TodoMVC",
-            app_url=app_url or s.target_app_url or "未提供",
+            app_url=app_url or "未提供",
             login_url=s.login_url or "未提供",
             test_account=test_account,
             test_username=s.test_username or "",
@@ -221,6 +260,46 @@ class AIService:
             )
 
         return GenerateResponse(cases=cases, raw=raw)
+
+    async def review_cases(
+        self,
+        cases: list[GeneratedCase],
+        feature_points: list[FeaturePoint],
+    ) -> ReviewResponse:
+        """用例质量评审：测试用例 + 功能点 → 综合评分 + 3条改进建议"""
+        cases_json = json.dumps(
+            [c.model_dump() for c in cases], ensure_ascii=False, indent=2
+        )
+        fp_json = json.dumps(
+            [fp.model_dump() for fp in feature_points], ensure_ascii=False, indent=2
+        )
+
+        prompt = REVIEW_PROMPT.format(
+            cases_json=cases_json,
+            feature_points_json=fp_json,
+        )
+
+        raw = await self.chat(prompt)
+        data = self._parse_json(raw)
+
+        suggestions = []
+        for s in data.get("suggestions", []):
+            suggestions.append(ReviewSuggestion(
+                case_title=s.get("case_title", ""),
+                issue=s.get("issue", ""),
+                suggestion=s.get("suggestion", ""),
+                example=s.get("example", ""),
+            ))
+
+        return ReviewResponse(
+            overall_score=data.get("overall_score", 0),
+            coverage_score=data.get("coverage_score", 0),
+            completeness_score=data.get("completeness_score", 0),
+            executability_score=data.get("executability_score", 0),
+            suggestions=suggestions[:3],
+            summary=data.get("summary", ""),
+            raw=raw,
+        )
 
     @staticmethod
     def _validate_script(script: str) -> list[str]:
@@ -283,6 +362,7 @@ class ExecutionService:
         script: str,
         app_url: str | None = None,
         timeout: int | None = None,
+        storage_state_path: str | None = None,
     ) -> RunResponse:
         """执行 Playwright 脚本并返回结果"""
         playwright_root = self.settings.playwright_root
@@ -302,7 +382,9 @@ class ExecutionService:
 
         # 从 Playwright 根目录执行，使用相对路径以便正确加载 node_modules
         spec_rel = spec_file.relative_to(playwright_root).as_posix()
-        cmd = self._build_command(spec_rel, run_dir, timeout)
+        # 优先使用请求传入的 storage_state_path，其次使用配置文件中的
+        effective_storage_state = storage_state_path or self.settings.storage_state_path
+        cmd = self._build_command(spec_rel, run_dir, timeout, effective_storage_state)
         start = time.time()
         test_count = max(1, len(re.findall(r"\btest\s*\(\s*['\"]", script_content)))
         proc_timeout = timeout or int(self.settings.browser_timeout / 1000 * test_count + 60)
@@ -324,7 +406,9 @@ class ExecutionService:
                 screenshot_path = Path(s)
                 if screenshot_path.is_relative_to(self.settings.runtime_dir):
                     rel_path = screenshot_path.relative_to(self.settings.runtime_dir).as_posix()
-                    screenshot_urls.append(f"/screenshots/{rel_path}")
+                    # 对中文路径进行 URL 编码，避免 StaticFiles 404
+                    encoded_path = quote(rel_path, safe='/')
+                    screenshot_urls.append(f"/screenshots/{encoded_path}")
                 else:
                     screenshot_urls.append(s)
 
@@ -355,15 +439,15 @@ class ExecutionService:
             )
 
     def _build_command(
-        self, spec_rel_path: str, work_dir: Path, timeout: int | None
+        self, spec_rel_path: str, work_dir: Path, timeout: int | None, storage_state_path: str | None = None
     ) -> list[str]:
         """构建 playwright test 命令"""
         npx = shutil.which("npx")
         if not npx:
             raise FileNotFoundError("npx")
-        
+
         config_rel = Path(
-            self._write_config(work_dir)
+            self._write_config(work_dir, storage_state_path)
         ).relative_to(self.settings.playwright_root).as_posix()
         
         cmd = [
@@ -379,9 +463,9 @@ class ExecutionService:
 
         return cmd
 
-    def _write_config(self, work_dir: Path) -> str:
+    def _write_config(self, work_dir: Path, storage_state_path: str | None = None) -> str:
         """写入 playwright.config.ts（配置截图和浏览器）"""
-        storage_state = self.settings.storage_state_path if self.settings.storage_state_path else None
+        storage_state = storage_state_path if storage_state_path else None
         storage_line = f"storageState: '{storage_state}'," if storage_state else ""
         config_content = f"""import {{ defineConfig }} from '@playwright/test';
 
