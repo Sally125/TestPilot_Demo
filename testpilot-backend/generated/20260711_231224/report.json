@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "total_modules": 3,
+    "passed": 0,
+    "failed": 3,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "file": "page_elements.spec.ts",
+      "module": "page_elements",
+      "title": "考公大师-页面元素验证",
+      "passed": false,
+      "duration_ms": 157549,
+      "error": "Error: page.goto: Test timeout of 30000ms exceeded.",
+      "test_count": 5
+    },
+    {
+      "file": "form_validation.spec.ts",
+      "module": "form_validation",
+      "title": "考公大师-表单验证",
+      "passed": false,
+      "duration_ms": 94762,
+      "error": "Error: page.goto: Test timeout of 30000ms exceeded.",
+      "test_count": 3
+    },
+    {
+      "file": "login_navigation.spec.ts",
+      "module": "login_navigation",
+      "title": "考公大师-登录与导航",
+      "passed": false,
+      "duration_ms": 63646,
+      "error": "Error: page.goto: Test timeout of 30000ms exceeded.",
+      "test_count": 2
+    }
+  ]
+}

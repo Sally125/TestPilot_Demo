@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "total_modules": 3,
+    "passed": 0,
+    "failed": 3,
+    "pass_rate": 0.0
+  },
+  "results": [
+    {
+      "file": "page_elements.spec.ts",
+      "module": "page_elements",
+      "title": "考公大师-页面元素验证",
+      "passed": false,
+      "duration_ms": 117283,
+      "error": "脚本执行超时（30000ms）",
+      "test_count": 4
+    },
+    {
+      "file": "form_validation.spec.ts",
+      "module": "form_validation",
+      "title": "考公大师-表单验证",
+      "passed": false,
+      "duration_ms": 82755,
+      "error": "Error: expect(locator).toBeVisible() failed",
+      "test_count": 3
+    },
+    {
+      "file": "login_navigation.spec.ts",
+      "module": "login_navigation",
+      "title": "考公大师-登录与导航",
+      "passed": false,
+      "duration_ms": 64026,
+      "error": "Error: expect(page).toHaveURL(expected) failed",
+      "test_count": 2
+    }
+  ]
+}
