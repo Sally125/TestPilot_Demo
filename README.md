@@ -14,14 +14,19 @@
 
 ## 快速开始
 
-### 1. 配置 AI API
+### 1. 配置环境变量
 
-要使用 AI 能力（如测试用例分析、脚本生成等），需要配置 DeepSeek API：
+项目包含 `.env.example` 模板文件，复制一份并重命名为 `.env`：
 
-编辑 `testpilot-backend/.env` 文件：
+```bash
+cd testpilot-backend
+cp .env.example .env
+```
+
+编辑 `.env` 文件，配置 DeepSeek API Key（必填）：
 
 ```env
-# ===== DeepSeek API 配置 =====
+# ===== DeepSeek API 配置（必填）=====
 DEEPSEEK_API_KEY=your_api_key_here
 DEEPSEEK_BASE_URL=https://api.kukuit.com
 DEEPSEEK_MODEL=deepseek-v4-flash
