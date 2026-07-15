@@ -10,8 +10,10 @@ from .config import get_settings
 from .routes import router
 from .database import engine
 from . import db_models
+from .migration import run_migration
 
 db_models.Base.metadata.create_all(bind=engine)
+run_migration()
 
 settings = get_settings()
 
@@ -26,17 +28,21 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-app.mount("/screenshots", StaticFiles(directory=settings.runtime_dir), name="screenshots")
-
-# CORS：允许前端跨域访问
+# CORS：允许前端跨域访问（必须在其他中间件之前添加）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Day 1 阶段先放开，后续按需收紧
+    allow_origins=[
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.mount("/screenshots", StaticFiles(directory=settings.runtime_dir), name="screenshots")
 app.include_router(router)
 
 

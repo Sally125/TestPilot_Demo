@@ -1,0 +1,9 @@
+{
+  "id": 20,
+  "name": "newbee-mall-E2E-1784037649",
+  "description": "newbee-mall 端到端测试项目",
+  "appUrl": "http://localhost:28089",
+  "dim": "电商商城",
+  "techStack": "Java/Spring Boot/Thymeleaf",
+  "createdAt": "2026-07-14T14:00:49"
+}

@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<!-- saved from url=(0083)file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>后端开发技术设计文档 - AI评审建议跳转用例库人工修改</title>
+
+  <style>
+    @font-face {
+      font-family: 'Instrument Sans';
+      src: url('./_shared/fonts/InstrumentSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Instrument Sans';
+      src: url('./_shared/fonts/InstrumentSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      src: url('./_shared/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+  </style>
+
+  <style>
+    :root {
+      --bg: #F5F6F7;
+      --bg2: #ffffff;
+      --bg3: #F8F9FA;
+      --ink: #1F2329;
+      --muted: #646A73;
+      --muted2: #8F959E;
+      --rule: #DEE0E3;
+      --rule2: #D0D3D6;
+      --accent: #1456F0;
+      --accent2: #FF8800;
+      --success: #34C724;
+      --danger: #F54A45;
+      --font: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --max: 1080px;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.7;
+    }
+    article.page {
+      max-width: var(--max);
+      margin: 0 auto;
+      background: var(--bg2);
+      min-height: 100vh;
+      box-shadow: 0 8px 32px color-mix(in srgb, var(--ink) 12%, transparent);
+    }
+    header.cover {
+      padding: 3rem;
+      border-bottom: 1px solid var(--rule);
+      background: linear-gradient(135deg, var(--bg2), var(--bg3));
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.45rem);
+      line-height: 1.25;
+      margin-bottom: 0.75rem;
+      color: var(--ink);
+    }
+    .subtitle {
+      max-width: 760px;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      color: var(--muted2);
+      font-size: 0.85rem;
+    }
+    main {
+      padding: 2.5rem 3rem 3rem;
+    }
+    section {
+      margin: 2.5rem 0;
+    }
+    h2 {
+      font-size: 1.35rem;
+      line-height: 1.35;
+      padding-bottom: 0.65rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--accent);
+    }
+    h3 {
+      font-size: 1.05rem;
+      margin: 1.5rem 0 0.65rem;
+      padding-left: 0.75rem;
+      border-left: 3px solid var(--accent);
+    }
+    h4 {
+      font-size: 0.95rem;
+      margin: 1.1rem 0 0.5rem;
+    }
+    p {
+      margin: 0.65rem 0;
+      font-size: 0.94rem;
+    }
+    ul, ol {
+      padding-left: 1.35rem;
+      margin: 0.65rem 0;
+      font-size: 0.94rem;
+    }
+    li { margin: 0.25rem 0; }
+    mark.key {
+      background: none;
+      color: var(--accent);
+      font-weight: 700;
+      padding: 0 0.1rem;
+    }
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.86em;
+      background: var(--bg3);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 0.1rem 0.25rem;
+    }
+    pre {
+      font-family: var(--font-mono);
+      background: var(--bg3);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.84rem;
+      line-height: 1.65;
+      margin: 0.9rem 0;
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: inherit;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .grid.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .card {
+      border: 1px solid var(--rule);
+      background: var(--bg3);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .card .label {
+      color: var(--muted2);
+      font-size: 0.78rem;
+      margin-bottom: 0.25rem;
+    }
+    .card .value {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .callout {
+      border: 1px solid var(--rule);
+      border-left: 4px solid var(--accent);
+      background: var(--bg3);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.1rem;
+      margin: 1rem 0;
+    }
+    .callout.warning {
+      border-left-color: var(--accent2);
+    }
+    .callout.danger {
+      border-left-color: var(--danger);
+    }
+    .callout.success {
+      border-left-color: var(--success);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 600px;
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-sm);
+      margin: 1rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+      font-size: 0.88rem;
+      background: var(--bg2);
+    }
+    th, td {
+      padding: 0.75rem 0.8rem;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--bg3);
+      color: var(--ink);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    .tag {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 0.1rem 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg2));
+      color: var(--accent);
+      white-space: nowrap;
+    }
+    .tag.orange {
+      background: color-mix(in srgb, var(--accent2) 14%, var(--bg2));
+      color: var(--accent2);
+    }
+    .tag.green {
+      background: color-mix(in srgb, var(--success) 14%, var(--bg2));
+      color: color-mix(in srgb, var(--success) 70%, var(--ink));
+    }
+    .tag.red {
+      background: color-mix(in srgb, var(--danger) 12%, var(--bg2));
+      color: var(--danger);
+    }
+    .tag.gray {
+      background: color-mix(in srgb, var(--muted2) 14%, var(--bg2));
+      color: var(--muted);
+    }
+    figure.diagram {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      background: var(--bg3);
+    }
+    figure.diagram figcaption {
+      margin-top: 0.65rem;
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-align: center;
+    }
+    .mermaid {
+      background: var(--bg2);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      overflow-x: auto;
+    }
+    .toc {
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      background: var(--bg3);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+    .toc ol {
+      list-style: none;
+      counter-reset: toc;
+      padding-left: 0;
+    }
+    .toc > ol > li {
+      counter-increment: toc;
+      margin: 0.5rem 0;
+      font-weight: 700;
+    }
+    .toc > ol > li::before {
+      content: counter(toc) ". ";
+      color: var(--accent);
+    }
+    .toc ol ol {
+      counter-reset: tocsub;
+      padding-left: 1.5rem;
+      margin-top: 0.3rem;
+    }
+    .toc ol ol li {
+      counter-increment: tocsub;
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+    .toc ol ol li::before {
+      content: counter(toc) "." counter(tocsub) " ";
+      color: var(--muted2);
+    }
+    .toc a {
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .toc a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    sup a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.75em;
+      font-weight: 600;
+    }
+    sup a:hover { text-decoration: underline; }
+    footer {
+      padding: 2rem 3rem 3rem;
+      border-top: 1px solid var(--rule);
+      background: var(--bg3);
+    }
+    footer .sources ol {
+      padding-left: 1.2rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    footer .sources li {
+      margin-bottom: 0.5rem;
+      overflow-wrap: break-word;
+      word-break: break-all;
+    }
+    footer .sources .src-title {
+      color: var(--ink);
+      word-break: normal;
+    }
+    footer .sources .src-url {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.82rem;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    @media (max-width: 768px) {
+      header.cover, main, footer { padding-left: 1.25rem; padding-right: 1.25rem; }
+      .grid, .grid.two { grid-template-columns: 1fr; }
+      table { min-width: 720px; }
+    }
+    @media print {
+      body { background: var(--bg2); }
+      article.page { box-shadow: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <header class="cover">
+      <div class="badge">技术设计文档 · 后端开发</div>
+      <h1>AI评审建议跳转用例库人工修改 - 后端技术设计</h1>
+      <p class="subtitle">本文档基于产品需求文档，针对"AI评审建议定向跳转用例库人工修改"功能，定义后端数据库变更、接口契约、业务逻辑、事务控制与异常处理的技术方案，作为开发实施的工程依据。</p>
+      <div class="meta">
+        <span>适用产品：AI自动化测试生成智能体 (TestPilot)</span>
+        <span>目标读者：后端开发、数据库开发、QA、前端</span>
+        <span>版本：v1.0</span>
+        <span>日期：2026年7月14日</span>
+      </div>
+    </header>
+
+    <main>
+      <div class="toc">
+        <ol>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s1">文档概述</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s1-1">需求来源与目标</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s1-2">范围与约束</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s1-3">术语定义</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s2">现有架构分析</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s2-1">技术栈与分层</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s2-2">现有数据模型</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s2-3">现有评审链路</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s2-4">差距分析</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s3">数据库设计</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s3-1">新增表：review_suggestions</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s3-2">修改表：test_cases</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s3-3">修改表：review_reports</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s3-4">迁移方案</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4">接口设计</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-1">接口总览</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-2">获取建议列表</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-3">获取单条建议详情</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-4">更新建议状态</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-5">用例定向查询</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-6">保存用例修改</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s4-7">重新评审单条用例</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s5">业务逻辑设计</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s5-1">状态机设计</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s5-2">保存用例的事务流程</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s5-3">乐观锁与并发控制</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s5-4">AI评审Prompt改造</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s6">异常处理设计</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s6-1">异常映射表</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s6-2">错误响应规范</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s7">权限与安全</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s7-1">操作权限矩阵</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s7-2">审计日志</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s8">测试策略</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s8-1">单元测试</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s8-2">集成测试</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s8-3">验收映射</a></li>
+            </ol>
+          </li>
+          <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s9">实施计划</a>
+            <ol>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s9-1">开发任务分解</a></li>
+              <li><a href="file:///e%3A/hkx_project/TestPilot/prd/backend-tech-design/backend-tech-design.html#s9-2">风险与对策</a></li>
+            </ol>
+          </li>
+        </ol>
+      </div>
+
+      <!-- ==================== 1. 文档概述 ==================== -->
+      <section id="s1">
+        <h2>一、文档概述</h2>
+
+        <h3 id="s1-1">需求来源与目标</h3>
+        <p>本设计基于产品需求文档《AI评审建议跳转用例库人工修改》，核心目标是让 AI 评审报告中的每条改进建议能绑定具体的测试用例和字段，用户点击建议后系统自动定向到用例库编辑态，完成修改后建议状态和用例评审状态自动流转。当前系统的评审建议仅以非结构化 JSON 存储在 <code>review_reports.suggestions</code> 字段中，缺少独立的建议实体、状态跟踪和与用例的关联关系，无法支撑"定向跳转-编辑-状态回写"的闭环流程。</p>
+
+        <div class="grid">
+          <div class="card">
+            <div class="label">技术栈</div>
+            <div class="value">FastAPI + SQLAlchemy 2.0 + SQLite</div>
+          </div>
+          <div class="card">
+            <div class="label">变更范围</div>
+            <div class="value">3 张表 + 6 个接口</div>
+          </div>
+          <div class="card">
+            <div class="label">优先级</div>
+            <div class="value">P0 (MVP)</div>
+          </div>
+        </div>
+
+        <h3 id="s1-2">范围与约束</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>类别</th><th>内容</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>本期实现</td><td>建议结构化存储、状态流转、用例定向查询与保存、重新评审单条用例、忽略建议</td></tr>
+              <tr><td>本期不做</td><td>AI一键应用建议（仅预留 <code>sample_patch</code> 字段）、多用户实时协同编辑、建议批量操作</td></tr>
+              <tr><td>技术约束</td><td>不修改现有业务代码的核心逻辑，仅做增量扩展；数据库为 SQLite，不引入新的中间件</td></tr>
+              <tr><td>兼容约束</td><td>现有 <code>review_reports.suggestions</code> JSON 结构保持向前兼容，前端旧版本仍可读取</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s1-3">术语定义</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>术语</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>建议 (Suggestion)</td><td>AI 评审生成的一条改进项，绑定到一个测试用例的一个或多个字段</td></tr>
+              <tr><td>深链接 (Deep Link)</td><td>携带 <code>caseId</code>、<code>reviewId</code>、<code>suggestionId</code>、<code>focus</code> 参数的用例库 URL</td></tr>
+              <tr><td>乐观锁 (Optimistic Lock)</td><td>通过 <code>version</code> 字段实现的并发控制机制，保存时校验版本号防止覆盖</td></tr>
+              <tr><td>定向编辑态</td><td>用例库接收到深链接参数后进入的特殊编辑模式，自动定位用例并高亮目标字段</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== 2. 现有架构分析 ==================== -->
+      <section id="s2">
+        <h2>二、现有架构分析</h2>
+
+        <h3 id="s2-1">技术栈与分层</h3>
+        <p>TestPilot 后端基于 <mark class="key">FastAPI 0.115.6</mark> 框架，使用 <mark class="key">SQLAlchemy 2.0.35</mark> 作为 ORM，数据库为 SQLite。代码位于 <code>testpilot-backend/app/</code> 目录下，采用四层分层架构：</p>
+
+        <figure class="diagram">
+          <pre class="mermaid" data-processed="true"><svg id="mermaid-1784000615299" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 750.5028686523438px;" viewBox="0 0 750.5028686523438 341.34088134765625" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#mermaid-1784000615299{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#000000;}#mermaid-1784000615299 .error-icon{fill:#552222;}#mermaid-1784000615299 .error-text{fill:#552222;stroke:#552222;}#mermaid-1784000615299 .edge-thickness-normal{stroke-width:1px;}#mermaid-1784000615299 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1784000615299 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1784000615299 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1784000615299 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1784000615299 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1784000615299 .marker{fill:#666;stroke:#666;}#mermaid-1784000615299 .marker.cross{stroke:#666;}#mermaid-1784000615299 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1784000615299 p{margin:0;}#mermaid-1784000615299 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#000000;}#mermaid-1784000615299 .cluster-label text{fill:#333;}#mermaid-1784000615299 .cluster-label span{color:#333;}#mermaid-1784000615299 .cluster-label span p{background-color:transparent;}#mermaid-1784000615299 .label text,#mermaid-1784000615299 span{fill:#000000;color:#000000;}#mermaid-1784000615299 .node rect,#mermaid-1784000615299 .node circle,#mermaid-1784000615299 .node ellipse,#mermaid-1784000615299 .node polygon,#mermaid-1784000615299 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#mermaid-1784000615299 .rough-node .label text,#mermaid-1784000615299 .node .label text,#mermaid-1784000615299 .image-shape .label,#mermaid-1784000615299 .icon-shape .label{text-anchor:middle;}#mermaid-1784000615299 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-1784000615299 .rough-node .label,#mermaid-1784000615299 .node .label,#mermaid-1784000615299 .image-shape .label,#mermaid-1784000615299 .icon-shape .label{text-align:center;}#mermaid-1784000615299 .node.clickable{cursor:pointer;}#mermaid-1784000615299 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#mermaid-1784000615299 .arrowheadPath{fill:#333333;}#mermaid-1784000615299 .edgePath .path{stroke:#666;stroke-width:2.0px;}#mermaid-1784000615299 .flowchart-link{stroke:#666;fill:none;}#mermaid-1784000615299 .edgeLabel{background-color:white;text-align:center;}#mermaid-1784000615299 .edgeLabel p{background-color:white;}#mermaid-1784000615299 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#mermaid-1784000615299 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#mermaid-1784000615299 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#mermaid-1784000615299 .cluster text{fill:#333;}#mermaid-1784000615299 .cluster span{color:#333;}#mermaid-1784000615299 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-1784000615299 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#mermaid-1784000615299 rect.text{fill:none;stroke-width:0;}#mermaid-1784000615299 .icon-shape,#mermaid-1784000615299 .image-shape{background-color:white;text-align:center;}#mermaid-1784000615299 .icon-shape p,#mermaid-1784000615299 .image-shape p{background-color:white;padding:2px;}#mermaid-1784000615299 .icon-shape rect,#mermaid-1784000615299 .image-shape rect{opacity:0.5;background-color:white;fill:white;}#mermaid-1784000615299 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="mermaid-1784000615299_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615299_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615299_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-1784000615299_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-1784000615299_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615299_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M312.787,66.135L291.275,73.132C269.763,80.128,226.738,94.121,205.226,104.617C183.714,115.114,183.714,122.114,183.714,125.614L183.714,129.114" id="L_A_B_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path><path d="M439.335,65.956L461.13,72.982C482.924,80.008,526.513,94.061,548.308,104.587C570.102,115.114,570.102,122.114,570.102,125.614L570.102,129.114" id="L_A_C_1" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path><path d="M511.737,208.227L505.262,212.394C498.787,216.561,485.837,224.894,479.362,232.561C472.886,240.227,472.886,247.227,472.886,250.727L472.886,254.227" id="L_C_D_2" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path><path d="M124.332,208.227L117.744,212.394C111.156,216.561,97.98,224.894,91.392,232.561C84.804,240.227,84.804,247.227,84.804,250.727L84.804,254.227" id="L_B_E_3" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path><path d="M243.096,208.227L249.684,212.394C256.272,216.561,269.448,224.894,276.036,232.561C282.624,240.227,282.624,247.227,282.624,250.727L282.624,254.227" id="L_B_F_4" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path><path d="M628.467,208.227L634.942,212.394C641.417,216.561,654.368,224.894,660.843,232.561C667.318,240.227,667.318,247.227,667.318,250.727L667.318,254.227" id="L_C_G_5" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615299_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g></g><g class="nodes"><g class="node default  " id="flowchart-A-0" transform="translate(376.06107330322266, 45.55681610107422)"><rect class="basic label-container" style="" x="-63.274147033691406" y="-37.55681800842285" width="126.54829406738281" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-33.274147033691406, -22.55681800842285)"><rect></rect><foreignobject width="66.54829406738281" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>routes.py<br>API路由层</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-B-1" transform="translate(183.7137794494629, 170.67044830322266)"><rect class="basic label-container" style="" x="-67.59232711791992" y="-37.55681800842285" width="135.18465423583984" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-37.59232711791992, -22.55681800842285)"><rect></rect><foreignobject width="75.18465423583984" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>crud.py<br>数据访问层</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-C-3" transform="translate(570.1022644042969, 170.67044830322266)"><rect class="basic label-container" style="" x="-67.59232711791992" y="-37.55681800842285" width="135.18465423583984" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-37.59232711791992, -22.55681800842285)"><rect></rect><foreignobject width="75.18465423583984" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>services.py<br>业务服务层</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-D-5" transform="translate(472.88636016845703, 295.7840805053711)"><rect class="basic label-container" style="" x="-69.24715805053711" y="-37.55681800842285" width="138.49431610107422" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-39.24715805053711, -22.55681800842285)"><rect></rect><foreignobject width="78.49431610107422" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>prompts.py<br>Prompt模板</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-E-7" transform="translate(84.8039779663086, 295.7840805053711)"><rect class="basic label-container" style="" x="-76.80397415161133" y="-37.55681800842285" width="153.60794830322266" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-46.80397415161133, -22.55681800842285)"><rect></rect><foreignobject width="93.60794830322266" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>db_models.py<br>ORM模型</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-F-9" transform="translate(282.6235809326172, 295.7840805053711)"><rect class="basic label-container" style="" x="-71.015625" y="-37.55681800842285" width="142.03125" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-41.015625, -22.55681800842285)"><rect></rect><foreignobject width="82.03125" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>database.py<br>引擎配置</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-G-11" transform="translate(667.3181686401367, 295.7840805053711)"><rect class="basic label-container" style="" x="-75.18465805053711" y="-37.55681800842285" width="150.36931610107422" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-45.18465805053711, -22.55681800842285)"><rect></rect><foreignobject width="90.36931610107422" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>DeepSeek API<br>via httpx</p></span></div></foreignobject></g></g></g></g></g></svg></pre>
+          <figcaption>图1：TestPilot 后端分层架构</figcaption>
+        </figure>
+
+        <p>所有路由通过 <code>APIRouter(prefix="/api")</code> 注册，使用 <code>Depends(get_db)</code> 注入数据库会话。AI 核心接口声明 <code>response_model</code> 返回 Pydantic 模型，CRUD 接口直接返回 camelCase dict。错误处理在路由函数内通过 <code>try/except</code> 捕获后抛出 <code>HTTPException</code>，<code>RuntimeError</code> 映射为 400，其他异常映射为 500。</p>
+
+        <h3 id="s2-2">现有数据模型</h3>
+        <p>当前与评审和用例相关的 ORM 模型有三张表：</p>
+
+        <h4>ReviewReport (review_reports)</h4>
+        <p>评审报告表，存储 AI 评审的评分、维度指标和建议。建议以 JSON 数组存储在 <code>suggestions</code> 字段中，每条建议仅包含 <code>case_title</code>、<code>issue</code>、<code>suggestion</code>、<code>example</code> 四个字段，<mark class="key">没有独立 ID、没有关联 case_id、没有状态字段</mark>。</p>
+        <pre><code>class ReviewReport(Base):
+    __tablename__ = "review_reports"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, nullable=False)
+    score = Column(Integer, nullable=True)
+    metrics = Column(JSON, nullable=True)
+    suggestions = Column(JSON, nullable=True)  # 非结构化建议列表
+    req_source = Column(String(500), nullable=True)
+    model = Column(String(100), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), server_default=func.now())</code></pre>
+
+        <h4>TestCase (test_cases)</h4>
+        <p>测试用例表，存储用例标题、模块、优先级、前置条件、操作步骤、预期结果、脚本内容等。有 <code>status</code> 字段（取值 <code>pending</code>、<code>passed</code>、<code>failed</code>），但<mark class="key">没有评审状态字段和版本号字段</mark>。</p>
+
+        <h4>Pydantic ReviewSuggestion (models.py)</h4>
+        <p>现有的 <code>ReviewSuggestion</code> 是 Pydantic 模型而非数据库表，仅用于 AI 评审的请求/响应数据结构，不持久化：</p>
+        <pre><code>class ReviewSuggestion(BaseModel):
+    case_title: str = Field(..., description="问题所在用例标题")
+    issue: str = Field(..., description="问题描述")
+    suggestion: str = Field(..., description="改进建议")
+    example: str = Field(default="", description="代码示例（可选）")</code></pre>
+
+        <h3 id="s2-3">现有评审链路</h3>
+        <p>当前评审流程为：<code>POST /api/projects/{project_id}/review/generate</code> 接口从数据库拉取用例和功能点，调用 <code>AIService.review_cases()</code> 方法请求 DeepSeek API，返回包含评分和建议的 <code>ReviewResponse</code>，然后通过 <code>create_review_report()</code> 将结果存入 <code>review_reports</code> 表。建议数据在持久化时被转换为带有 <code>tag</code>、<code>label</code>、<code>title</code>、<code>problem</code>、<code>suggestion</code>、<code>code</code> 字段的 JSON 数组，但仍然<mark class="key">缺少建议 ID、用例 ID 关联和状态跟踪</mark>。</p>
+
+        <figure class="diagram">
+          <pre class="mermaid" data-processed="true"><svg id="mermaid-1784000615371" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="max-width: 1063px;" viewBox="-50 -10 1063 499" role="graphics-document document" aria-roledescription="sequence"><g><rect x="813" y="413" fill="#eaeaea" stroke="#666" width="150" height="65" name="DB" rx="3" ry="3" class="actor actor-bottom"></rect><text x="888" y="445.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="888" dy="0">Database</tspan></text></g><g><rect x="613" y="413" fill="#eaeaea" stroke="#666" width="150" height="65" name="DS" rx="3" ry="3" class="actor actor-bottom"></rect><text x="688" y="445.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="688" dy="0">DeepSeek API</tspan></text></g><g><rect x="338" y="413" fill="#eaeaea" stroke="#666" width="150" height="65" name="AI" rx="3" ry="3" class="actor actor-bottom"></rect><text x="413" y="445.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="413" dy="0">AIService</tspan></text></g><g><rect x="0" y="413" fill="#eaeaea" stroke="#666" width="150" height="65" name="R" rx="3" ry="3" class="actor actor-bottom"></rect><text x="75" y="445.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="75" dy="0">Route</tspan></text></g><g><line id="actor3" x1="888" y1="65" x2="888" y2="413" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="DB"></line><g id="root-3"><rect x="813" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" name="DB" rx="3" ry="3" class="actor actor-top"></rect><text x="888" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="888" dy="0">Database</tspan></text></g></g><g><line id="actor2" x1="688" y1="65" x2="688" y2="413" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="DS"></line><g id="root-2"><rect x="613" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" name="DS" rx="3" ry="3" class="actor actor-top"></rect><text x="688" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="688" dy="0">DeepSeek API</tspan></text></g></g><g><line id="actor1" x1="413" y1="65" x2="413" y2="413" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="AI"></line><g id="root-1"><rect x="338" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" name="AI" rx="3" ry="3" class="actor actor-top"></rect><text x="413" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="413" dy="0">AIService</tspan></text></g></g><g><line id="actor0" x1="75" y1="65" x2="75" y2="413" class="actor-line 200" stroke-width="0.5px" stroke="#999" name="R"></line><g id="root-0"><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" name="R" rx="3" ry="3" class="actor actor-top"></rect><text x="75" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px; font-weight: 400;"><tspan x="75" dy="0">Route</tspan></text></g></g><style>#mermaid-1784000615371{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#000000;}#mermaid-1784000615371 .error-icon{fill:#552222;}#mermaid-1784000615371 .error-text{fill:#552222;stroke:#552222;}#mermaid-1784000615371 .edge-thickness-normal{stroke-width:1px;}#mermaid-1784000615371 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1784000615371 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1784000615371 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1784000615371 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1784000615371 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1784000615371 .marker{fill:#666;stroke:#666;}#mermaid-1784000615371 .marker.cross{stroke:#666;}#mermaid-1784000615371 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1784000615371 p{margin:0;}#mermaid-1784000615371 .actor{stroke:hsl(0, 0%, 83%);fill:#eee;}#mermaid-1784000615371 text.actor&gt;tspan{fill:#333;stroke:none;}#mermaid-1784000615371 .actor-line{stroke:hsl(0, 0%, 83%);}#mermaid-1784000615371 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#mermaid-1784000615371 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#mermaid-1784000615371 #arrowhead path{fill:#333;stroke:#333;}#mermaid-1784000615371 .sequenceNumber{fill:white;}#mermaid-1784000615371 #sequencenumber{fill:#333;}#mermaid-1784000615371 #crosshead path{fill:#333;stroke:#333;}#mermaid-1784000615371 .messageText{fill:#333;stroke:none;}#mermaid-1784000615371 .labelBox{stroke:hsl(0, 0%, 83%);fill:#eee;}#mermaid-1784000615371 .labelText,#mermaid-1784000615371 .labelText&gt;tspan{fill:#333;stroke:none;}#mermaid-1784000615371 .loopText,#mermaid-1784000615371 .loopText&gt;tspan{fill:#333;stroke:none;}#mermaid-1784000615371 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(0, 0%, 83%);fill:hsl(0, 0%, 83%);}#mermaid-1784000615371 .note{stroke:#999;fill:#666;}#mermaid-1784000615371 .noteText,#mermaid-1784000615371 .noteText&gt;tspan{fill:#fff;stroke:none;}#mermaid-1784000615371 .activation0{fill:#f4f4f4;stroke:#666;}#mermaid-1784000615371 .activation1{fill:#f4f4f4;stroke:#666;}#mermaid-1784000615371 .activation2{fill:#f4f4f4;stroke:#666;}#mermaid-1784000615371 .actorPopupMenu{position:absolute;}#mermaid-1784000615371 .actorPopupMenuPanel{position:absolute;fill:#eee;box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);filter:drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));}#mermaid-1784000615371 .actor-man line{stroke:hsl(0, 0%, 83%);fill:#eee;}#mermaid-1784000615371 .actor-man circle,#mermaid-1784000615371 line{stroke:hsl(0, 0%, 83%);fill:#eee;stroke-width:2px;}#mermaid-1784000615371 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><defs><symbol id="computer" width="24" height="24"><path transform="scale(.5)" d="M2 2v13h20v-13h-20zm18 11h-16v-9h16v9zm-10.228 6l.466-1h3.524l.467 1h-4.457zm14.228 3h-24l2-6h2.104l-1.33 4h18.45l-1.297-4h2.073l2 6zm-5-10h-14v-7h14v7z"></path></symbol></defs><defs><symbol id="database" fill-rule="evenodd" clip-rule="evenodd"><path transform="scale(.5)" d="M12.258.001l.256.004.255.005.253.008.251.01.249.012.247.015.246.016.242.019.241.02.239.023.236.024.233.027.231.028.229.031.225.032.223.034.22.036.217.038.214.04.211.041.208.043.205.045.201.046.198.048.194.05.191.051.187.053.183.054.18.056.175.057.172.059.168.06.163.061.16.063.155.064.15.066.074.033.073.033.071.034.07.034.069.035.068.035.067.035.066.035.064.036.064.036.062.036.06.036.06.037.058.037.058.037.055.038.055.038.053.038.052.038.051.039.05.039.048.039.047.039.045.04.044.04.043.04.041.04.04.041.039.041.037.041.036.041.034.041.033.042.032.042.03.042.029.042.027.042.026.043.024.043.023.043.021.043.02.043.018.044.017.043.015.044.013.044.012.044.011.045.009.044.007.045.006.045.004.045.002.045.001.045v17l-.001.045-.002.045-.004.045-.006.045-.007.045-.009.044-.011.045-.012.044-.013.044-.015.044-.017.043-.018.044-.02.043-.021.043-.023.043-.024.043-.026.043-.027.042-.029.042-.03.042-.032.042-.033.042-.034.041-.036.041-.037.041-.039.041-.04.041-.041.04-.043.04-.044.04-.045.04-.047.039-.048.039-.05.039-.051.039-.052.038-.053.038-.055.038-.055.038-.058.037-.058.037-.06.037-.06.036-.062.036-.064.036-.064.036-.066.035-.067.035-.068.035-.069.035-.07.034-.071.034-.073.033-.074.033-.15.066-.155.064-.16.063-.163.061-.168.06-.172.059-.175.057-.18.056-.183.054-.187.053-.191.051-.194.05-.198.048-.201.046-.205.045-.208.043-.211.041-.214.04-.217.038-.22.036-.223.034-.225.032-.229.031-.231.028-.233.027-.236.024-.239.023-.241.02-.242.019-.246.016-.247.015-.249.012-.251.01-.253.008-.255.005-.256.004-.258.001-.258-.001-.256-.004-.255-.005-.253-.008-.251-.01-.249-.012-.247-.015-.245-.016-.243-.019-.241-.02-.238-.023-.236-.024-.234-.027-.231-.028-.228-.031-.226-.032-.223-.034-.22-.036-.217-.038-.214-.04-.211-.041-.208-.043-.204-.045-.201-.046-.198-.048-.195-.05-.19-.051-.187-.053-.184-.054-.179-.056-.176-.057-.172-.059-.167-.06-.164-.061-.159-.063-.155-.064-.151-.066-.074-.033-.072-.033-.072-.034-.07-.034-.069-.035-.068-.035-.067-.035-.066-.035-.064-.036-.063-.036-.062-.036-.061-.036-.06-.037-.058-.037-.057-.037-.056-.038-.055-.038-.053-.038-.052-.038-.051-.039-.049-.039-.049-.039-.046-.039-.046-.04-.044-.04-.043-.04-.041-.04-.04-.041-.039-.041-.037-.041-.036-.041-.034-.041-.033-.042-.032-.042-.03-.042-.029-.042-.027-.042-.026-.043-.024-.043-.023-.043-.021-.043-.02-.043-.018-.044-.017-.043-.015-.044-.013-.044-.012-.044-.011-.045-.009-.044-.007-.045-.006-.045-.004-.045-.002-.045-.001-.045v-17l.001-.045.002-.045.004-.045.006-.045.007-.045.009-.044.011-.045.012-.044.013-.044.015-.044.017-.043.018-.044.02-.043.021-.043.023-.043.024-.043.026-.043.027-.042.029-.042.03-.042.032-.042.033-.042.034-.041.036-.041.037-.041.039-.041.04-.041.041-.04.043-.04.044-.04.046-.04.046-.039.049-.039.049-.039.051-.039.052-.038.053-.038.055-.038.056-.038.057-.037.058-.037.06-.037.061-.036.062-.036.063-.036.064-.036.066-.035.067-.035.068-.035.069-.035.07-.034.072-.034.072-.033.074-.033.151-.066.155-.064.159-.063.164-.061.167-.06.172-.059.176-.057.179-.056.184-.054.187-.053.19-.051.195-.05.198-.048.201-.046.204-.045.208-.043.211-.041.214-.04.217-.038.22-.036.223-.034.226-.032.228-.031.231-.028.234-.027.236-.024.238-.023.241-.02.243-.019.245-.016.247-.015.249-.012.251-.01.253-.008.255-.005.256-.004.258-.001.258.001zm-9.258 20.499v.01l.001.021.003.021.004.022.005.021.006.022.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.023.018.024.019.024.021.024.022.025.023.024.024.025.052.049.056.05.061.051.066.051.07.051.075.051.079.052.084.052.088.052.092.052.097.052.102.051.105.052.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.048.144.049.147.047.152.047.155.047.16.045.163.045.167.043.171.043.176.041.178.041.183.039.187.039.19.037.194.035.197.035.202.033.204.031.209.03.212.029.216.027.219.025.222.024.226.021.23.02.233.018.236.016.24.015.243.012.246.01.249.008.253.005.256.004.259.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.021.224-.024.22-.026.216-.027.212-.028.21-.031.205-.031.202-.034.198-.034.194-.036.191-.037.187-.039.183-.04.179-.04.175-.042.172-.043.168-.044.163-.045.16-.046.155-.046.152-.047.148-.048.143-.049.139-.049.136-.05.131-.05.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.053.083-.051.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.05.023-.024.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.023.01-.022.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.127l-.077.055-.08.053-.083.054-.085.053-.087.052-.09.052-.093.051-.095.05-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.045-.118.044-.12.043-.122.042-.124.042-.126.041-.128.04-.13.04-.132.038-.134.038-.135.037-.138.037-.139.035-.142.035-.143.034-.144.033-.147.032-.148.031-.15.03-.151.03-.153.029-.154.027-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.01-.179.008-.179.008-.181.006-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.006-.179-.008-.179-.008-.178-.01-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.027-.153-.029-.151-.03-.15-.03-.148-.031-.146-.032-.145-.033-.143-.034-.141-.035-.14-.035-.137-.037-.136-.037-.134-.038-.132-.038-.13-.04-.128-.04-.126-.041-.124-.042-.122-.042-.12-.044-.117-.043-.116-.045-.113-.045-.112-.046-.109-.047-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.05-.093-.052-.09-.051-.087-.052-.085-.053-.083-.054-.08-.054-.077-.054v4.127zm0-5.654v.011l.001.021.003.021.004.021.005.022.006.022.007.022.009.022.01.022.011.023.012.023.013.023.015.024.016.023.017.024.018.024.019.024.021.024.022.024.023.025.024.024.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.052.11.051.114.051.119.052.123.05.127.051.131.05.135.049.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.044.171.042.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.022.23.02.233.018.236.016.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.012.241-.015.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.048.139-.05.136-.049.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.051.051-.049.023-.025.023-.024.021-.025.02-.024.019-.024.018-.024.017-.024.015-.023.014-.023.013-.024.012-.022.01-.023.01-.023.008-.022.006-.022.006-.022.004-.021.004-.022.001-.021.001-.021v-4.139l-.077.054-.08.054-.083.054-.085.052-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.049-.105.048-.106.047-.109.047-.111.046-.114.045-.115.044-.118.044-.12.044-.122.042-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.035-.143.033-.144.033-.147.033-.148.031-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.025-.161.024-.162.023-.163.022-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.011-.178.009-.179.009-.179.007-.181.007-.182.005-.182.004-.184.003-.184.002h-.37l-.184-.002-.184-.003-.182-.004-.182-.005-.181-.007-.179-.007-.179-.009-.178-.009-.176-.011-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.022-.162-.023-.161-.024-.159-.025-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.031-.146-.033-.145-.033-.143-.033-.141-.035-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.04-.126-.041-.124-.042-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.047-.105-.048-.102-.049-.1-.049-.097-.05-.095-.051-.093-.051-.09-.051-.087-.053-.085-.052-.083-.054-.08-.054-.077-.054v4.139zm0-5.666v.011l.001.02.003.022.004.021.005.022.006.021.007.022.009.023.01.022.011.023.012.023.013.023.015.023.016.024.017.024.018.023.019.024.021.025.022.024.023.024.024.025.052.05.056.05.061.05.066.051.07.051.075.052.079.051.084.052.088.052.092.052.097.052.102.052.105.051.11.052.114.051.119.051.123.051.127.05.131.05.135.05.139.049.144.048.147.048.152.047.155.046.16.045.163.045.167.043.171.043.176.042.178.04.183.04.187.038.19.037.194.036.197.034.202.033.204.032.209.03.212.028.216.027.219.025.222.024.226.021.23.02.233.018.236.017.24.014.243.012.246.01.249.008.253.006.256.003.259.001.26-.001.257-.003.254-.006.25-.008.247-.01.244-.013.241-.014.237-.016.233-.018.231-.02.226-.022.224-.024.22-.025.216-.027.212-.029.21-.03.205-.032.202-.033.198-.035.194-.036.191-.037.187-.039.183-.039.179-.041.175-.042.172-.043.168-.044.163-.045.16-.045.155-.047.152-.047.148-.048.143-.049.139-.049.136-.049.131-.051.126-.05.123-.051.118-.052.114-.051.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.052.07-.051.065-.051.06-.051.056-.05.051-.049.023-.025.023-.025.021-.024.02-.024.019-.024.018-.024.017-.024.015-.023.014-.024.013-.023.012-.023.01-.022.01-.023.008-.022.006-.022.006-.022.004-.022.004-.021.001-.021.001-.021v-4.153l-.077.054-.08.054-.083.053-.085.053-.087.053-.09.051-.093.051-.095.051-.097.05-.1.049-.102.048-.105.048-.106.048-.109.046-.111.046-.114.046-.115.044-.118.044-.12.043-.122.043-.124.042-.126.041-.128.04-.13.039-.132.039-.134.038-.135.037-.138.036-.139.036-.142.034-.143.034-.144.033-.147.032-.148.032-.15.03-.151.03-.153.028-.154.028-.156.027-.158.026-.159.024-.161.024-.162.023-.163.023-.165.021-.166.02-.167.019-.169.018-.169.017-.171.016-.173.015-.173.014-.175.013-.175.012-.177.01-.178.01-.179.009-.179.007-.181.006-.182.006-.182.004-.184.003-.184.001-.185.001-.185-.001-.184-.001-.184-.003-.182-.004-.182-.006-.181-.006-.179-.007-.179-.009-.178-.01-.176-.01-.176-.012-.175-.013-.173-.014-.172-.015-.171-.016-.17-.017-.169-.018-.167-.019-.166-.02-.165-.021-.163-.023-.162-.023-.161-.024-.159-.024-.157-.026-.156-.027-.155-.028-.153-.028-.151-.03-.15-.03-.148-.032-.146-.032-.145-.033-.143-.034-.141-.034-.14-.036-.137-.036-.136-.037-.134-.038-.132-.039-.13-.039-.128-.041-.126-.041-.124-.041-.122-.043-.12-.043-.117-.044-.116-.044-.113-.046-.112-.046-.109-.046-.106-.048-.105-.048-.102-.048-.1-.05-.097-.049-.095-.051-.093-.051-.09-.052-.087-.052-.085-.053-.083-.053-.08-.054-.077-.054v4.153zm8.74-8.179l-.257.004-.254.005-.25.008-.247.011-.244.012-.241.014-.237.016-.233.018-.231.021-.226.022-.224.023-.22.026-.216.027-.212.028-.21.031-.205.032-.202.033-.198.034-.194.036-.191.038-.187.038-.183.04-.179.041-.175.042-.172.043-.168.043-.163.045-.16.046-.155.046-.152.048-.148.048-.143.048-.139.049-.136.05-.131.05-.126.051-.123.051-.118.051-.114.052-.11.052-.106.052-.101.052-.096.052-.092.052-.088.052-.083.052-.079.052-.074.051-.07.052-.065.051-.06.05-.056.05-.051.05-.023.025-.023.024-.021.024-.02.025-.019.024-.018.024-.017.023-.015.024-.014.023-.013.023-.012.023-.01.023-.01.022-.008.022-.006.023-.006.021-.004.022-.004.021-.001.021-.001.021.001.021.001.021.004.021.004.022.006.021.006.023.008.022.01.022.01.023.012.023.013.023.014.023.015.024.017.023.018.024.019.024.02.025.021.024.023.024.023.025.051.05.056.05.06.05.065.051.07.052.074.051.079.052.083.052.088.052.092.052.096.052.101.052.106.052.11.052.114.052.118.051.123.051.126.051.131.05.136.05.139.049.143.048.148.048.152.048.155.046.16.046.163.045.168.043.172.043.175.042.179.041.183.04.187.038.191.038.194.036.198.034.202.033.205.032.21.031.212.028.216.027.22.026.224.023.226.022.231.021.233.018.237.016.241.014.244.012.247.011.25.008.254.005.257.004.26.001.26-.001.257-.004.254-.005.25-.008.247-.011.244-.012.241-.014.237-.016.233-.018.231-.021.226-.022.224-.023.22-.026.216-.027.212-.028.21-.031.205-.032.202-.033.198-.034.194-.036.191-.038.187-.038.183-.04.179-.041.175-.042.172-.043.168-.043.163-.045.16-.046.155-.046.152-.048.148-.048.143-.048.139-.049.136-.05.131-.05.126-.051.123-.051.118-.051.114-.052.11-.052.106-.052.101-.052.096-.052.092-.052.088-.052.083-.052.079-.052.074-.051.07-.052.065-.051.06-.05.056-.05.051-.05.023-.025.023-.024.021-.024.02-.025.019-.024.018-.024.017-.023.015-.024.014-.023.013-.023.012-.023.01-.023.01-.022.008-.022.006-.023.006-.021.004-.022.004-.021.001-.021.001-.021-.001-.021-.001-.021-.004-.021-.004-.022-.006-.021-.006-.023-.008-.022-.01-.022-.01-.023-.012-.023-.013-.023-.014-.023-.015-.024-.017-.023-.018-.024-.019-.024-.02-.025-.021-.024-.023-.024-.023-.025-.051-.05-.056-.05-.06-.05-.065-.051-.07-.052-.074-.051-.079-.052-.083-.052-.088-.052-.092-.052-.096-.052-.101-.052-.106-.052-.11-.052-.114-.052-.118-.051-.123-.051-.126-.051-.131-.05-.136-.05-.139-.049-.143-.048-.148-.048-.152-.048-.155-.046-.16-.046-.163-.045-.168-.043-.172-.043-.175-.042-.179-.041-.183-.04-.187-.038-.191-.038-.194-.036-.198-.034-.202-.033-.205-.032-.21-.031-.212-.028-.216-.027-.22-.026-.224-.023-.226-.022-.231-.021-.233-.018-.237-.016-.241-.014-.244-.012-.247-.011-.25-.008-.254-.005-.257-.004-.26-.001-.26.001z"></path></symbol></defs><defs><symbol id="clock" width="24" height="24"><path transform="scale(.5)" d="M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z"></path></symbol></defs><defs><marker id="arrowhead" refX="7.9" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M -1 0 L 10 5 L 0 10 z"></path></marker></defs><defs><marker id="crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="4" refY="4.5"><path fill="none" stroke="#000000" stroke-width="1pt" d="M 1,2 L 6,7 M 6,2 L 1,7" style="stroke-dasharray: 0, 0;"></path></marker></defs><defs><marker id="filled-head" refX="15.5" refY="7" markerWidth="20" markerHeight="28" orient="auto"><path d="M 18,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><defs><marker id="sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"></circle></marker></defs><text x="480" y="80" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">查询用例 + 功能点</text><line x1="76" y1="121" x2="884" y2="121" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><text x="243" y="136" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">review_cases(cases, feature_points)</text><line x1="76" y1="177" x2="409" y2="177" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><text x="549" y="192" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">POST /v1/chat/completions</text><line x1="414" y1="233" x2="684" y2="233" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><text x="552" y="248" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">JSON (score + suggestions)</text><line x1="687" y1="281" x2="417" y2="281" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="246" y="296" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">ReviewResponse</text><line x1="412" y1="337" x2="79" y2="337" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="480" y="352" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-size: 16px; font-weight: 400;">create_review_report(suggestions as JSON)</text><line x1="76" y1="393" x2="884" y2="393" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line></svg></pre>
+          <figcaption>图2：现有评审链路时序</figcaption>
+        </figure>
+
+        <h3 id="s2-4">差距分析</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>PRD 需求</th><th>现状</th><th>差距</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>每条建议有独立 ID 和状态</td><td>建议以 JSON 数组存储，无独立实体</td><td>需新增 <code>review_suggestions</code> 表</td></tr>
+              <tr><td>建议关联到具体用例 ID</td><td>仅有 <code>case_title</code> 文本匹配</td><td>需增加 <code>case_id</code> 外键关系</td></tr>
+              <tr><td>建议状态流转 (pending/editing/resolved/ignored)</td><td>无状态字段</td><td>需增加 <code>status</code> 字段和状态机</td></tr>
+              <tr><td>用例评审状态 (needs_modification/modified_pending_review/review_passed)</td><td>用例仅有执行状态 (pending/passed/failed)</td><td>需增加 <code>review_status</code> 字段</td></tr>
+              <tr><td>保存时校验版本防并发覆盖</td><td>无版本控制</td><td>需增加 <code>version</code> 字段实现乐观锁</td></tr>
+              <tr><td>保存用例时回写建议状态</td><td>保存用例与建议无关</td><td>需在事务中联动更新</td></tr>
+              <tr><td>重新评审单条用例</td><td>仅支持整项目评审</td><td>需新增单用例评审接口</td></tr>
+              <tr><td>建议包含 field_path、issue_type、severity</td><td>仅有 problem/suggestion 文本</td><td>需扩展 AI Prompt 输出结构</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== 3. 数据库设计 ==================== -->
+      <section id="s3">
+        <h2>三、数据库设计</h2>
+
+        <h3 id="s3-1">新增表：review_suggestions</h3>
+        <p>将建议从 <code>review_reports.suggestions</code> JSON 中拆出，作为独立实体存储。每条建议绑定到一个评审报告和一个测试用例，拥有自己的状态、处理人和审计字段。</p>
+
+        <h4>ORM 模型定义</h4>
+        <pre><code>class ReviewSuggestion(Base):
+    """AI 评审改进建议（独立实体）"""
+    __tablename__ = "review_suggestions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    suggestion_uid = Column(String(20), nullable=False, unique=True, index=True)
+    review_report_id = Column(Integer, nullable=False, index=True)
+    project_id = Column(Integer, nullable=False, index=True)
+    case_id = Column(Integer, nullable=False, index=True)
+    field_path = Column(JSON, nullable=False)          # ["steps", "expected_result"]
+    issue_type = Column(String(30), nullable=False)     # coverage_gap/boundary_missing/...
+    severity = Column(String(10), nullable=False)       # high/medium/low
+    problem = Column(Text, nullable=False)
+    suggestion = Column(Text, nullable=False)
+    sample_patch = Column(JSON, nullable=True)          # AI 参考修改示例
+    status = Column(String(20), nullable=False, default="pending")  # pending/editing/resolved/ignored
+    handled_by = Column(String(100), nullable=True)
+    handled_at = Column(DateTime(timezone=True), nullable=True)
+    ignore_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())</code></pre>
+
+        <h4>字段说明</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>约束</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>id</code></td><td>Integer</td><td>PK, 自增</td><td>内部主键</td></tr>
+              <tr><td><code>suggestion_uid</code></td><td>String(20)</td><td>Unique, NotNull</td><td>业务 ID，格式 <code>S-{review_report_id}-{序号}</code>，如 <code>S-5-001</code></td></tr>
+              <tr><td><code>review_report_id</code></td><td>Integer</td><td>NotNull, Index</td><td>关联 <code>review_reports.id</code></td></tr>
+              <tr><td><code>project_id</code></td><td>Integer</td><td>NotNull, Index</td><td>关联 <code>projects.id</code>，冗余字段用于查询加速</td></tr>
+              <tr><td><code>case_id</code></td><td>Integer</td><td>NotNull, Index</td><td>关联 <code>test_cases.id</code></td></tr>
+              <tr><td><code>field_path</code></td><td>JSON</td><td>NotNull</td><td>建议影响的字段列表，如 <code>["steps", "expected_result"]</code></td></tr>
+              <tr><td><code>issue_type</code></td><td>String(30)</td><td>NotNull</td><td>问题类型枚举</td></tr>
+              <tr><td><code>severity</code></td><td>String(10)</td><td>NotNull</td><td>严重程度：<code>high</code> / <code>medium</code> / <code>low</code></td></tr>
+              <tr><td><code>problem</code></td><td>Text</td><td>NotNull</td><td>问题描述</td></tr>
+              <tr><td><code>suggestion</code></td><td>Text</td><td>NotNull</td><td>修改建议</td></tr>
+              <tr><td><code>sample_patch</code></td><td>JSON</td><td>Nullable</td><td>AI 参考修改示例（预留，本期不自动应用）</td></tr>
+              <tr><td><code>status</code></td><td>String(20)</td><td>NotNull, default <code>pending</code></td><td>状态枚举</td></tr>
+              <tr><td><code>handled_by</code></td><td>String(100)</td><td>Nullable</td><td>处理人用户标识</td></tr>
+              <tr><td><code>handled_at</code></td><td>DateTime</td><td>Nullable</td><td>处理时间</td></tr>
+              <tr><td><code>ignore_reason</code></td><td>Text</td><td>Nullable</td><td>忽略原因</td></tr>
+              <tr><td><code>created_at</code></td><td>DateTime</td><td>server_default now()</td><td>创建时间</td></tr>
+              <tr><td><code>updated_at</code></td><td>DateTime</td><td>onupdate now()</td><td>更新时间</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>枚举值定义</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>字段</th><th>枚举值</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td rowspan="5"><code>issue_type</code></td><td><code>coverage_gap</code></td><td>覆盖缺失：用例未覆盖某功能点或场景</td></tr>
+              <tr><td><code>boundary_missing</code></td><td>边界缺失：缺少边界值测试</td></tr>
+              <tr><td><code>assertion_weak</code></td><td>断言薄弱：预期结果或脚本断言不够明确</td></tr>
+              <tr><td><code>script_risk</code></td><td>脚本风险：选择器不稳定、等待策略不当</td></tr>
+              <tr><td><code>duplicate_case</code></td><td>用例重复：与其他用例存在冗余</td></tr>
+              <tr><td rowspan="4"><code>status</code></td><td><code>pending</code></td><td>待处理（AI 评审后默认）</td></tr>
+              <tr><td><code>editing</code></td><td>处理中（用户点击"去修改"）</td></tr>
+              <tr><td><code>resolved</code></td><td>已处理（用户保存修改）</td></tr>
+              <tr><td><code>ignored</code></td><td>已忽略（用户主动忽略）</td></tr>
+              <tr><td rowspan="3"><code>severity</code></td><td><code>high</code></td><td>高严重度</td></tr>
+              <tr><td><code>medium</code></td><td>中严重度</td></tr>
+              <tr><td><code>low</code></td><td>低严重度</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <p><strong>设计决策：</strong><code>suggestion_uid</code> 使用 <code>S-{review_report_id}-{序号}</code> 格式而非 UUID，原因是建议数量少（每次评审最多 3 条），可读性优于随机 ID。序号三位补零，如 <code>S-5-001</code>。该值在创建建议时由后端生成，不由 AI 输出。</p>
+        </div>
+
+        <h3 id="s3-2">修改表：test_cases</h3>
+        <p>在现有 <code>TestCase</code> 表上增加两个字段，分别用于跟踪评审状态和实现乐观锁。</p>
+
+        <pre><code># 新增字段（追加到现有 TestCase 类）
+review_status = Column(String(30), nullable=True)  # 评审状态
+version = Column(Integer, nullable=False, default=1)  # 乐观锁版本号</code></pre>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>新增字段</th><th>类型</th><th>默认值</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>review_status</code></td><td>String(30)</td><td>NULL</td><td>用例评审状态：<code>needs_modification</code> / <code>modified_pending_review</code> / <code>review_passed</code>。NULL 表示未评审。</td></tr>
+              <tr><td><code>version</code></td><td>Integer</td><td>1</td><td>乐观锁版本号，每次保存自增 1</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>review_status 枚举</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>值</th><th>触发条件</th><th>前端展示</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>NULL</code></td><td>未评审或评审通过后无建议</td><td>不展示评审状态标签</td></tr>
+              <tr><td><code>needs_modification</code></td><td>AI 评审发现问题并生成建议</td><td><span class="tag red">需修改</span></td></tr>
+              <tr><td><code>modified_pending_review</code></td><td>用户保存修改后</td><td><span class="tag orange">已修改待复审</span></td></tr>
+              <tr><td><code>review_passed</code></td><td>重新评审通过</td><td><span class="tag green">已通过</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>向前兼容：</strong>现有用例的 <code>review_status</code> 为 NULL，<code>version</code> 为 1，不影响现有功能。<code>review_status</code> 与现有的 <code>status</code> 字段（执行状态）语义独立，不混用。</p>
+        </div>
+
+        <h3 id="s3-3">修改表：review_reports</h3>
+        <p>在现有 <code>ReviewReport</code> 表上增加一个字段，标记报告是否已过期。</p>
+
+        <pre><code># 新增字段（追加到现有 ReviewReport 类）
+is_expired = Column(Integer, nullable=False, default=0)  # 0=有效, 1=已过期</code></pre>
+
+        <p>当用户对用例保存修改后，该用例关联的评审报告标记为过期（<code>is_expired=1</code>），前端在报告页顶部展示过期提示。过期报告的建议仍然可查看，但不自动更新状态。</p>
+
+        <h3 id="s3-4">迁移方案</h3>
+        <p>由于项目使用 SQLite 且启动时通过 <code>Base.metadata.create_all(bind=engine)</code> 自动建表，新增表和新增字段需要手动执行迁移脚本。SQLite 不支持 <code>ALTER TABLE ADD COLUMN IF NOT EXISTS</code>，因此使用 try/except 包裹 DDL 语句。</p>
+
+        <h4>迁移脚本</h4>
+        <pre><code>-- migration_001_review_suggestions.sql
+
+-- 1. 新增 review_suggestions 表
+CREATE TABLE IF NOT EXISTS review_suggestions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    suggestion_uid VARCHAR(20) NOT NULL UNIQUE,
+    review_report_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
+    case_id INTEGER NOT NULL,
+    field_path JSON NOT NULL,
+    issue_type VARCHAR(30) NOT NULL,
+    severity VARCHAR(10) NOT NULL,
+    problem TEXT NOT NULL,
+    suggestion TEXT NOT NULL,
+    sample_patch JSON,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    handled_by VARCHAR(100),
+    handled_at DATETIME,
+    ignore_reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS idx_suggestions_review_id ON review_suggestions(review_report_id);
+CREATE INDEX IF NOT EXISTS idx_suggestions_case_id ON review_suggestions(case_id);
+CREATE INDEX IF NOT EXISTS idx_suggestions_status ON review_suggestions(status);
+CREATE INDEX IF NOT EXISTS idx_suggestions_project_id ON review_suggestions(project_id);
+
+-- 2. test_cases 新增字段（SQLite 不支持 IF NOT EXISTS，用 Python 迁移）
+-- 在 main.py 启动时执行：
+--   ALTER TABLE test_cases ADD COLUMN review_status VARCHAR(30);
+--   ALTER TABLE test_cases ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+
+-- 3. review_reports 新增字段
+--   ALTER TABLE review_reports ADD COLUMN is_expired INTEGER NOT NULL DEFAULT 0;</code></pre>
+
+        <h4>Python 迁移代码</h4>
+        <pre><code># app/migration.py
+from sqlalchemy import text
+from app.database import engine
+
+def run_migration():
+    """启动时执行数据库迁移（幂等）"""
+    with engine.connect() as conn:
+        # test_cases 新增字段
+        for col, ddl in [
+            ("review_status", "ALTER TABLE test_cases ADD COLUMN review_status VARCHAR(30)"),
+            ("version", "ALTER TABLE test_cases ADD COLUMN version INTEGER NOT NULL DEFAULT 1"),
+        ]:
+            try:
+                conn.execute(text(ddl))
+                conn.commit()
+            except Exception:
+                pass  # 字段已存在
+
+        # review_reports 新增字段
+        try:
+            conn.execute(text(
+                "ALTER TABLE review_reports ADD COLUMN is_expired INTEGER NOT NULL DEFAULT 0"
+            ))
+            conn.commit()
+        except Exception:
+            pass</code></pre>
+
+        <p>在 <code>main.py</code> 的 <code>Base.metadata.create_all()</code> 之后调用 <code>run_migration()</code>。</p>
+      </section>
+
+      <!-- ==================== 4. 接口设计 ==================== -->
+      <section id="s4">
+        <h2>四、接口设计</h2>
+
+        <h3 id="s4-1">接口总览</h3>
+        <p>新增 6 个 API 接口，遵循现有的 <code>/api</code> 前缀和 RESTful 嵌套路径风格。接口命名与 PRD 定义对齐，但根据现有代码风格做了微调（如路径使用复数资源名）。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>接口</th><th>方法</th><th>用途</th><th>优先级</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/api/reviews/{reviewId}/suggestions</code></td><td>GET</td><td>获取评审报告下的建议列表</td><td><span class="tag">P0</span></td></tr>
+              <tr><td><code>/api/review-suggestions/{suggestionId}</code></td><td>GET</td><td>获取单条建议详情</td><td><span class="tag">P0</span></td></tr>
+              <tr><td><code>/api/review-suggestions/{suggestionId}/status</code></td><td>PATCH</td><td>更新建议状态（忽略/恢复）</td><td><span class="tag">P0</span></td></tr>
+              <tr><td><code>/api/cases/{caseId}</code></td><td>GET</td><td>用例定向查询（含版本号、权限信息）</td><td><span class="tag">P0</span></td></tr>
+              <tr><td><code>/api/cases/{caseId}</code></td><td>PATCH</td><td>保存用例修改（含建议状态回写）</td><td><span class="tag">P0</span></td></tr>
+              <tr><td><code>/api/cases/{caseId}/review</code></td><td>POST</td><td>重新评审单条用例</td><td><span class="tag orange">P1</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning">
+          <p><strong>命名说明：</strong>现有项目中用例查询路径为 <code>/api/projects/{project_id}/testcases</code>，但 PRD 深链接格式为 <code>/cases?caseId=TC-007</code>。为兼容深链接的前端路由，后端新增 <code>/api/cases/{caseId}</code> 独立资源路径，与现有 <code>/api/testcases/{case_id}</code> 路径并存。前者用于定向编辑场景（返回版本号、评审状态、关联建议），后者用于项目内用例管理。</p>
+        </div>
+
+        <!-- 4.2 -->
+        <h3 id="s4-2">获取建议列表</h3>
+        <h4>请求</h4>
+        <pre><code>GET /api/reviews/{reviewId}/suggestions
+
+路径参数:
+  reviewId: int  — 评审报告 ID
+
+查询参数:
+  status: string (可选) — 按状态过滤: pending/editing/resolved/ignored
+  caseId: int (可选) — 按用例 ID 过滤</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "reviewId": 5,
+  "projectId": 3,
+  "score": 72,
+  "isExpired": false,
+  "suggestions": [
+    {
+      "id": "S-5-001",
+      "reviewId": 5,
+      "caseId": 42,
+      "caseTitle": "登录功能-正常登录",
+      "fieldPath": ["steps", "expected_result"],
+      "issueType": "coverage_gap",
+      "severity": "medium",
+      "problem": "当前用例仅测试正常登录流程，未覆盖密码错误场景。",
+      "suggestion": "增加输入错误密码3次后验证锁定提示的步骤。",
+      "samplePatch": {
+        "steps": ["输入错误密码", "连续点击登录3次", "检查锁定提示"],
+        "expected_result": "页面展示账号已锁定或密码错误提示"
+      },
+      "status": "pending",
+      "handledBy": null,
+      "handledAt": null,
+      "createdAt": "2026-07-14T10:30:00Z"
+    }
+  ]
+}</code></pre>
+
+        <h4>实现逻辑</h4>
+        <ol>
+          <li>查询 <code>review_reports</code> 表验证 <code>reviewId</code> 存在，不存在返回 404。</li>
+          <li>查询 <code>review_suggestions</code> 表，按 <code>review_report_id</code> 过滤，可选追加 <code>status</code> 和 <code>case_id</code> 条件。</li>
+          <li>关联查询 <code>test_cases</code> 表获取 <code>caseTitle</code>。</li>
+          <li>返回建议列表，字段名使用 camelCase 与现有 CRUD 接口风格一致。</li>
+        </ol>
+
+        <!-- 4.3 -->
+        <h3 id="s4-3">获取单条建议详情</h3>
+        <h4>请求</h4>
+        <pre><code>GET /api/review-suggestions/{suggestionId}
+
+路径参数:
+  suggestionId: string  — 建议 UID，如 "S-5-001"</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "id": "S-5-001",
+  "reviewId": 5,
+  "caseId": 42,
+  "caseTitle": "登录功能-正常登录",
+  "caseModule": "登录模块",
+  "fieldPath": ["steps", "expected_result"],
+  "issueType": "coverage_gap",
+  "issueTypeLabel": "覆盖缺失",
+  "severity": "medium",
+  "problem": "当前用例仅测试正常登录流程，未覆盖密码错误场景。",
+  "suggestion": "增加输入错误密码3次后验证锁定提示的步骤。",
+  "samplePatch": { ... },
+  "status": "pending",
+  "handledBy": null,
+  "handledAt": null,
+  "ignoreReason": null,
+  "caseInfo": {
+    "id": 42,
+    "title": "登录功能-正常登录",
+    "module": "登录模块",
+    "priority": "P0",
+    "status": "pending",
+    "reviewStatus": "needs_modification",
+    "version": 1
+  }
+}</code></pre>
+
+        <h4>实现逻辑</h4>
+        <ol>
+          <li>按 <code>suggestion_uid</code> 查询 <code>review_suggestions</code> 表。</li>
+          <li>不存在返回 404，响应体：<code>{"detail": "建议不存在"}</code>。</li>
+          <li>关联查询 <code>test_cases</code> 表获取用例简要信息，供前端编辑抽屉展示上下文。</li>
+          <li>映射 <code>issue_type</code> 到中文标签：<code>coverage_gap</code> → "覆盖缺失"等。</li>
+        </ol>
+
+        <!-- 4.4 -->
+        <h3 id="s4-4">更新建议状态</h3>
+        <h4>请求</h4>
+        <pre><code>PATCH /api/review-suggestions/{suggestionId}/status
+
+路径参数:
+  suggestionId: string  — 建议 UID
+
+请求体 (JSON):
+{
+  "status": "ignored",       // 目标状态: ignored / pending(恢复处理)
+  "ignoreReason": "已在其他用例覆盖此场景"  // 仅 status=ignored 时必填
+}</code></pre>
+
+        <h4>Pydantic 请求模型</h4>
+        <pre><code>class SuggestionStatusUpdate(BaseModel):
+    """更新建议状态请求"""
+    status: Literal["ignored", "pending"] = Field(
+        ..., description="目标状态: ignored(忽略) / pending(恢复处理)"
+    )
+    ignore_reason: str | None = Field(
+        default=None, max_length=500, description="忽略原因（仅 status=ignored 时填写）"
+    )</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "id": "S-5-001",
+  "status": "ignored",
+  "handledBy": "user_001",
+  "handledAt": "2026-07-14T11:00:00Z",
+  "ignoreReason": "已在其他用例覆盖此场景"
+}</code></pre>
+
+        <h4>状态流转规则</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>当前状态</th><th>允许目标状态</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>pending</code></td><td><code>ignored</code></td><td>用户忽略建议</td></tr>
+              <tr><td><code>editing</code></td><td><code>ignored</code></td><td>编辑中途放弃，忽略建议</td></tr>
+              <tr><td><code>ignored</code></td><td><code>pending</code></td><td>恢复处理</td></tr>
+              <tr><td><code>resolved</code></td><td>不允许变更</td><td>已处理状态终态，返回 400</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <p><strong>设计说明：</strong><code>editing</code> 和 <code>resolved</code> 状态不由本接口设置。<code>editing</code> 在用户点击"去修改"时由前端调用建议详情接口隐式触发（后端在查询建议时可选地更新状态），<code>resolved</code> 在保存用例时由事务联动设置。本接口仅处理用户主动的"忽略"和"恢复"操作。</p>
+        </div>
+
+        <!-- 4.5 -->
+        <h3 id="s4-5">用例定向查询</h3>
+        <h4>请求</h4>
+        <pre><code>GET /api/cases/{caseId}
+
+路径参数:
+  caseId: int  — 测试用例 ID
+
+查询参数:
+  suggestionId: string (可选) — 建议UID，用于返回关联的建议列表</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "id": 42,
+  "projectId": 3,
+  "title": "登录功能-正常登录",
+  "module": "登录模块",
+  "priority": "P0",
+  "precondition": "系统已启动，数据库正常",
+  "steps": ["打开登录页面", "输入用户名和密码", "点击登录按钮"],
+  "expected": "成功登录并跳转到首页",
+  "script": "import { test, expect } from '@playwright/test'...",
+  "scriptPath": null,
+  "status": "pending",
+  "reviewStatus": "needs_modification",
+  "version": 1,
+  "loginMode": "global",
+  "loginRole": null,
+  "createdAt": "2026-07-10T08:00:00Z",
+  "updatedAt": "2026-07-13T10:30:00Z",
+  "suggestions": [
+    {
+      "id": "S-5-001",
+      "fieldPath": ["steps", "expected_result"],
+      "problem": "当前用例仅测试正常登录流程...",
+      "suggestion": "增加输入错误密码3次后验证锁定提示...",
+      "status": "pending",
+      "severity": "medium"
+    }
+  ],
+  "lockedBy": null,
+  "canEdit": true
+}</code></pre>
+
+        <h4>实现逻辑</h4>
+        <ol>
+          <li>按 <code>case_id</code> 查询 <code>test_cases</code> 表，不存在返回 404。</li>
+          <li>若 <code>suggestionId</code> 参数存在，查询该用例下所有 <code>pending</code> 状态的建议，当前建议置顶。</li>
+          <li>返回 <code>version</code> 字段供前端保存时携带。</li>
+          <li><code>canEdit</code> 字段预留权限校验结果，本期默认 <code>true</code>（单用户系统）。</li>
+          <li><code>lockedBy</code> 预留锁定信息，本期返回 <code>null</code>。</li>
+        </ol>
+
+        <!-- 4.6 -->
+        <h3 id="s4-6">保存用例修改</h3>
+        <p>这是本需求最核心的接口，在一个数据库事务中完成用例更新、建议状态回写和用例评审状态流转。</p>
+
+        <h4>请求</h4>
+        <pre><code>PATCH /api/cases/{caseId}
+
+路径参数:
+  caseId: int  — 测试用例 ID
+
+请求体 (JSON):
+{
+  "title": "登录功能-正常登录与异常登录",
+  "precondition": "系统已启动，数据库正常",
+  "steps": [
+    "打开登录页面",
+    "输入正确用户名和密码，点击登录",
+    "退出登录",
+    "输入错误密码3次",
+    "检查锁定提示"
+  ],
+  "expected": "正常登录成功跳转首页；错误密码3次后账号锁定",
+  "script": "import { test, expect } ...",
+  "version": 1,
+  "suggestionId": "S-5-001"
+}</code></pre>
+
+        <h4>Pydantic 请求模型</h4>
+        <pre><code>class CaseUpdateRequest(BaseModel):
+    """保存用例修改请求"""
+    title: str | None = Field(default=None, min_length=1, description="用例标题")
+    precondition: str | None = None
+    steps: list[str] | None = Field(default=None, min_length=1, description="操作步骤")
+    expected: str | None = Field(default=None, min_length=1, description="预期结果")
+    script: str | None = None
+    version: int = Field(..., description="客户端持有的版本号（乐观锁）")
+    suggestion_id: str | None = Field(default=None, description="关联建议UID")</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "id": 42,
+  "version": 2,
+  "reviewStatus": "modified_pending_review",
+  "suggestionStatus": "resolved",
+  "message": "已保存，建议状态已更新",
+  "canRecheck": true
+}</code></pre>
+
+        <h4>响应 (409 — 版本冲突)</h4>
+        <pre><code>{
+  "detail": "用例版本冲突，请刷新后重试",
+  "errorCode": "VERSION_CONFLICT",
+  "serverVersion": 2,
+  "serverUpdatedAt": "2026-07-14T09:00:00Z"
+}</code></pre>
+
+        <div class="callout danger">
+          <p><strong>事务边界：</strong>用例字段更新、<code>version</code> 自增、<code>review_status</code> 更新、建议状态更新、报告过期标记，这五个操作必须在同一个数据库事务中完成。任一操作失败则整体回滚，不出现部分更新的中间状态。</p>
+        </div>
+
+        <!-- 4.7 -->
+        <h3 id="s4-7">重新评审单条用例</h3>
+        <h4>请求</h4>
+        <pre><code>POST /api/cases/{caseId}/review
+
+路径参数:
+  caseId: int  — 测试用例 ID
+
+请求体 (JSON):
+{
+  "reviewMode": "single"  // 评审模式: single(仅此用例)
+}</code></pre>
+
+        <h4>响应 (200)</h4>
+        <pre><code>{
+  "taskId": "review-42-1720944000",
+  "caseId": 42,
+  "status": "processing",
+  "message": "重新评审已启动"
+}</code></pre>
+
+        <h4>响应 (200 — 评审完成，同步返回)</h4>
+        <pre><code>{
+  "taskId": "review-42-1720944000",
+  "caseId": 42,
+  "status": "completed",
+  "reviewResult": {
+    "passed": true,
+    "score": 90,
+    "newSuggestions": []
+  },
+  "message": "复审通过，用例状态已更新为已通过"
+}</code></pre>
+
+        <h4>实现逻辑</h4>
+        <ol>
+          <li>查询用例，不存在返回 404。</li>
+          <li>查询用例所属项目的需求分析结果（功能点），不存在返回 400。</li>
+          <li>调用 <code>AIService.review_cases()</code> 对单条用例进行评审。</li>
+          <li>若评审通过（无新建议），更新用例 <code>review_status</code> 为 <code>review_passed</code>。</li>
+          <li>若有新建议，创建新的 <code>review_suggestions</code> 记录，更新用例 <code>review_status</code> 为 <code>needs_modification</code>。</li>
+          <li>若 DeepSeek API 调用失败，返回 400 并保留 <code>modified_pending_review</code> 状态。</li>
+        </ol>
+
+        <div class="callout warning">
+          <p><strong>实现简化：</strong>本期重新评审采用同步调用模式（等待 DeepSeek 返回后直接响应），不引入异步任务队列。原因是单条用例的评审 Prompt 较短，DeepSeek 响应时间通常在 5-15 秒内，前端可接受。后续如需支持批量重审，再引入任务队列。</p>
+        </div>
+      </section>
+
+      <!-- ==================== 5. 业务逻辑设计 ==================== -->
+      <section id="s5">
+        <h2>五、业务逻辑设计</h2>
+
+        <h3 id="s5-1">状态机设计</h3>
+        <p>建议状态和用例评审状态各自独立流转，但在关键节点（保存修改、重新评审）存在联动。</p>
+
+        <figure class="diagram">
+          <pre class="mermaid" data-processed="true"><svg id="mermaid-1784000615393" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="statediagram" style="max-width: 428.9460144042969px;" viewBox="0 0 428.9460144042969 1238.681884765625" role="graphics-document document" aria-roledescription="stateDiagram"><style>#mermaid-1784000615393{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#000000;}#mermaid-1784000615393 .error-icon{fill:#552222;}#mermaid-1784000615393 .error-text{fill:#552222;stroke:#552222;}#mermaid-1784000615393 .edge-thickness-normal{stroke-width:1px;}#mermaid-1784000615393 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1784000615393 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1784000615393 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1784000615393 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1784000615393 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1784000615393 .marker{fill:#666;stroke:#666;}#mermaid-1784000615393 .marker.cross{stroke:#666;}#mermaid-1784000615393 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1784000615393 p{margin:0;}#mermaid-1784000615393 defs #statediagram-barbEnd{fill:#000;stroke:#000;}#mermaid-1784000615393 g.stateGroup text{fill:#999;stroke:none;font-size:10px;}#mermaid-1784000615393 g.stateGroup text{fill:#000000;stroke:none;font-size:10px;}#mermaid-1784000615393 g.stateGroup .state-title{font-weight:bolder;fill:#111111;}#mermaid-1784000615393 g.stateGroup rect{fill:#eee;stroke:#999;}#mermaid-1784000615393 g.stateGroup line{stroke:#666;stroke-width:1;}#mermaid-1784000615393 .transition{stroke:#000;stroke-width:1;fill:none;}#mermaid-1784000615393 .stateGroup .composit{fill:#ffffff;border-bottom:1px;}#mermaid-1784000615393 .stateGroup .alt-composit{fill:#e0e0e0;border-bottom:1px;}#mermaid-1784000615393 .state-note{stroke:#999;fill:#666;}#mermaid-1784000615393 .state-note text{fill:#fff;stroke:none;font-size:10px;}#mermaid-1784000615393 .stateLabel .box{stroke:none;stroke-width:0;fill:#eee;opacity:0.5;}#mermaid-1784000615393 .edgeLabel .label rect{fill:#eee;opacity:0.5;}#mermaid-1784000615393 .edgeLabel{background-color:white;text-align:center;}#mermaid-1784000615393 .edgeLabel p{background-color:white;}#mermaid-1784000615393 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#mermaid-1784000615393 .edgeLabel .label text{fill:#000000;}#mermaid-1784000615393 .label div .edgeLabel{color:#000000;}#mermaid-1784000615393 .stateLabel text{fill:#111111;font-size:10px;font-weight:bold;}#mermaid-1784000615393 .node circle.state-start{fill:#222;stroke:#222;}#mermaid-1784000615393 .node .fork-join{fill:#222;stroke:#222;}#mermaid-1784000615393 .node circle.state-end{fill:hsl(0, 0%, 83.3333333333%);stroke:#ffffff;stroke-width:1.5;}#mermaid-1784000615393 .end-state-inner{fill:#ffffff;stroke-width:1.5;}#mermaid-1784000615393 .node rect{fill:#eee;stroke:#000;stroke-width:1px;}#mermaid-1784000615393 .node polygon{fill:#eee;stroke:#000;stroke-width:1px;}#mermaid-1784000615393 #statediagram-barbEnd{fill:#666;}#mermaid-1784000615393 .statediagram-cluster rect{fill:#eee;stroke:#000;stroke-width:1px;}#mermaid-1784000615393 .cluster-label,#mermaid-1784000615393 .nodeLabel{color:#111111;}#mermaid-1784000615393 .statediagram-cluster rect.outer{rx:5px;ry:5px;}#mermaid-1784000615393 .statediagram-state .divider{stroke:#000;}#mermaid-1784000615393 .statediagram-state .title-state{rx:5px;ry:5px;}#mermaid-1784000615393 .statediagram-cluster.statediagram-cluster .inner{fill:#ffffff;}#mermaid-1784000615393 .statediagram-cluster.statediagram-cluster-alt .inner{fill:#f4f4f4;}#mermaid-1784000615393 .statediagram-cluster .inner{rx:0;ry:0;}#mermaid-1784000615393 .statediagram-state rect.basic{rx:5px;ry:5px;}#mermaid-1784000615393 .statediagram-state rect.divider{stroke-dasharray:10,10;fill:#f4f4f4;}#mermaid-1784000615393 .note-edge{stroke-dasharray:5;}#mermaid-1784000615393 .statediagram-note rect{fill:#666;stroke:#999;stroke-width:1px;rx:0;ry:0;}#mermaid-1784000615393 .statediagram-note rect{fill:#666;stroke:#999;stroke-width:1px;rx:0;ry:0;}#mermaid-1784000615393 .statediagram-note text{fill:#fff;}#mermaid-1784000615393 .statediagram-note .nodeLabel{color:#fff;}#mermaid-1784000615393 .statediagram .edgeLabel{color:red;}#mermaid-1784000615393 #dependencyStart,#mermaid-1784000615393 #dependencyEnd{fill:#666;stroke:#666;stroke-width:1;}#mermaid-1784000615393 .statediagramTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#mermaid-1784000615393 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><defs><marker id="mermaid-1784000615393_stateDiagram-barbEnd" refX="19" refY="7" markerWidth="20" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto"><path d="M 19,7 L9,13 L14,7 L9,1 Z"></path></marker></defs><g class="root"><g class="clusters"></g><g class="edgePaths"></g><g class="edgeLabels"></g><g class="nodes"><g class="root" transform="translate(0, 0)"><g class="clusters"><g class=" statediagram-state statediagram-cluster " id="SuggestionStates" data-id="SuggestionStates" data-look="classic"><g><rect class="outer" x="8" y="8" width="412.9460096359253" height="586.340913772583" data-look="classic"></rect></g><g class="cluster-label" transform="translate(181.97300481796265, 9)"><foreignobject width="65" height="26.377840042114258"><div xmlns="http://www.w3.org/1999/xhtml" style="display: inline-block; padding-right: 1px; white-space: nowrap;"><span class="nodeLabel">建议状态</span></div></foreignobject></g><rect class="inner" x="8" y="36.37784004211426" width="412.9460096359253" height="553.9630737304688"></rect></g></g><g class="edgePaths"><path d="M282.528,59.5L282.528,67.63C282.528,75.759,282.528,92.019,282.528,108.278C282.528,124.538,282.528,140.797,282.528,148.927L282.528,157.057" id="edge0" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M247.915,192.577L229.513,201.213C211.11,209.849,174.304,227.121,155.901,243.886C137.499,260.652,137.499,276.911,137.499,285.041L137.499,293.17" id="edge1" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M121.011,331.727L114.059,339.857C107.106,347.987,93.201,364.246,86.248,380.506C79.295,396.765,79.295,413.025,79.295,421.154L79.295,429.284" id="edge2" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M282.268,195.614L282.159,203.743C282.05,211.873,281.831,228.133,281.722,247.605C281.612,267.078,281.612,289.763,281.612,312.449C281.612,335.134,281.612,357.82,281.532,377.293C281.453,396.765,281.293,413.025,281.213,421.154L281.134,429.284" id="edge3" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M154.364,331.727L161.476,339.857C168.588,347.987,182.813,364.246,199.948,380.506C217.083,396.765,237.13,413.025,247.153,421.154L257.176,429.284" id="edge4" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M303.84,429.284L313.494,421.154C323.149,413.025,342.459,396.765,352.114,377.293C361.768,357.82,361.768,335.134,361.768,312.449C361.768,289.763,361.768,267.078,352.303,247.605C342.837,228.133,323.906,211.873,314.44,203.743L304.974,195.614" id="edge5" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M79.295,467.841L79.295,474.091C79.295,480.341,79.295,492.841,79.295,505.341C79.295,517.841,79.295,530.341,79.295,536.591L79.295,542.841" id="edge6" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(282.5276908874512, 108.27840900421143)"><g class="label" transform="translate(-36.6051139831543, -11.278409004211426)"><foreignobject width="73.2102279663086" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>AI生成建议</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(137.49857711791992, 244.39204692840576)"><g class="label" transform="translate(-42.47869110107422, -11.278409004211426)"><foreignobject width="84.95738220214844" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>点击"去修改"</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(79.29545211791992, 380.5056848526001)"><g class="label" transform="translate(-45.1136360168457, -11.278409004211426)"><foreignobject width="90.2272720336914" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>保存用例修改</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(281.6122074127197, 312.44886589050293)"><g class="label" transform="translate(-30.078123092651367, -11.278409004211426)"><foreignobject width="60.156246185302734" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>忽略建议</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(197.03692626953125, 380.5056848526001)"><g class="label" transform="translate(-52.627838134765625, -11.278409004211426)"><foreignobject width="105.25567626953125" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>放弃编辑并忽略</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(361.76845359802246, 312.44886589050293)"><g class="label" transform="translate(-30.078123092651367, -11.278409004211426)"><foreignobject width="60.156246185302734" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>恢复处理</p></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g></g><g class="nodes"><g class="node default" id="state-SuggestionStates_start-0" transform="translate(282.5276908874512, 52.5)"><circle class="state-start" r="7" width="14" height="14"></circle></g><g class="node  statediagram-state " id="state-pending-5" transform="translate(282.5276908874512, 176.3352279663086)"><rect class="basic label-container" style="" rx="5" ry="5" x="-34.61221504211426" y="-19.278409004211426" width="69.22443008422852" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-26.612215042114258, -11.278409004211426)"><rect></rect><foreignobject width="53.224430084228516" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>pending</p></span></div></foreignobject></g></g><g class="node  statediagram-state " id="state-editing-4" transform="translate(137.49857711791992, 312.44886589050293)"><rect class="basic label-container" style="" rx="5" ry="5" x="-31.44460105895996" y="-19.278409004211426" width="62.88920211791992" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-23.44460105895996, -11.278409004211426)"><rect></rect><foreignobject width="46.88920211791992" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>editing</p></span></div></foreignobject></g></g><g class="node  statediagram-state " id="state-resolved-6" transform="translate(79.29545211791992, 448.56250381469727)"><rect class="basic label-container" style="" rx="5" ry="5" x="-36.295454025268555" y="-19.278409004211426" width="72.59090805053711" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-28.295454025268555, -11.278409004211426)"><rect></rect><foreignobject width="56.59090805053711" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>resolved</p></span></div></foreignobject></g></g><g class="node  statediagram-state " id="state-ignored-5" transform="translate(280.94459533691406, 448.56250381469727)"><rect class="basic label-container" style="" rx="5" ry="5" x="-33.276987075805664" y="-19.278409004211426" width="66.55397415161133" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-25.276987075805664, -11.278409004211426)"><rect></rect><foreignobject width="50.55397415161133" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>ignored</p></span></div></foreignobject></g></g><g class="node default" id="state-SuggestionStates_end-6" transform="translate(79.29545211791992, 549.840913772583)"><g><path d="M7 0 C7 0.40517908122283747, 6.964012880168563 0.816513743121899, 6.893654271085456 1.2155372436685123 C6.823295662002349 1.6145607442151257, 6.716427752933756 2.013397210557766, 6.5778483455013586 2.394141003279681 C6.439268938068961 2.7748847960015954, 6.26476736710249 3.149104622578984, 6.062177826491071 3.4999999999999996 C5.859588285879653 3.8508953774210153, 5.622755194947063 4.189128084166967, 5.362311101832846 4.499513267805774 C5.10186700871863 4.809898451444582, 4.809898451444583 5.10186700871863, 4.499513267805775 5.362311101832846 C4.189128084166968 5.622755194947063, 3.8508953774210166 5.859588285879652, 3.500000000000001 6.06217782649107 C3.149104622578985 6.264767367102489, 2.7748847960015963 6.439268938068961, 2.3941410032796817 6.5778483455013586 C2.013397210557767 6.716427752933756, 1.6145607442151264 6.823295662002349, 1.2155372436685128 6.893654271085456 C0.8165137431218992 6.964012880168563, 0.4051790812228379 7, 4.286263797015736e-16 7 C-0.405179081222837 7, -0.8165137431218985 6.964012880168563, -1.2155372436685121 6.893654271085456 C-1.6145607442151257 6.823295662002349, -2.0133972105577667 6.716427752933756, -2.394141003279681 6.5778483455013586 C-2.774884796001595 6.439268938068961, -3.149104622578983 6.26476736710249, -3.4999999999999982 6.062177826491071 C-3.8508953774210135 5.859588285879653, -4.189128084166966 5.6227551949470636, -4.499513267805773 5.362311101832848 C-4.809898451444581 5.101867008718632, -5.101867008718628 4.809898451444586, -5.3623111018328435 4.499513267805779 C-5.622755194947059 4.189128084166971, -5.859588285879649 3.8508953774210206, -6.062177826491068 3.5000000000000053 C-6.264767367102486 3.14910462257899, -6.439268938068958 2.774884796001602, -6.577848345501356 2.394141003279688 C-6.716427752933754 2.0133972105577738, -6.823295662002347 1.614560744215134, -6.893654271085454 1.215537243668521 C-6.9640128801685615 0.816513743121908, -6.999999999999999 0.4051790812228472, -7 1.0183126166254463e-14 C-7.000000000000001 -0.40517908122282686, -6.964012880168565 -0.8165137431218878, -6.893654271085459 -1.215537243668501 C-6.823295662002352 -1.6145607442151142, -6.716427752933759 -2.0133972105577542, -6.577848345501363 -2.394141003279669 C-6.439268938068967 -2.7748847960015834, -6.264767367102496 -3.149104622578972, -6.062177826491078 -3.4999999999999876 C-5.859588285879661 -3.8508953774210033, -5.6227551949470715 -4.1891280841669545, -5.362311101832856 -4.499513267805763 C-5.10186700871864 -4.809898451444571, -4.809898451444594 -5.10186700871862, -4.499513267805787 -5.362311101832836 C-4.189128084166979 -5.622755194947053, -3.850895377421028 -5.859588285879643, -3.5000000000000133 -6.062177826491062 C-3.1491046225789985 -6.264767367102482, -2.774884796001611 -6.439268938068954, -2.3941410032796973 -6.577848345501353 C-2.0133972105577835 -6.716427752933752, -1.6145607442151435 -6.823295662002345, -1.2155372436685306 -6.893654271085453 C-0.8165137431219176 -6.9640128801685615, -0.40517908122285695 -6.999999999999999, -1.9937625952807352e-14 -7 C0.4051790812228171 -7.000000000000001, 0.8165137431218781 -6.964012880168565, 1.2155372436684913 -6.89365427108546 C1.6145607442151044 -6.823295662002354, 2.013397210557745 -6.716427752933763, 2.3941410032796595 -6.5778483455013665 C2.774884796001574 -6.43926893806897, 3.149104622578963 -6.2647673671025, 3.499999999999979 -6.062177826491083 C3.8508953774209953 -5.859588285879665, 4.189128084166947 -5.622755194947077, 4.499513267805756 -5.362311101832862 C4.809898451444564 -5.1018670087186475, 5.101867008718613 -4.809898451444602, 5.362311101832829 -4.499513267805796 C5.622755194947046 -4.189128084166989, 5.859588285879637 -3.8508953774210393, 6.062177826491056 -3.500000000000025 C6.2647673671024755 -3.1491046225790105, 6.439268938068949 -2.774884796001623, 6.577848345501348 -2.3941410032797092 C6.716427752933747 -2.0133972105577955, 6.823295662002342 -1.6145607442151562, 6.893654271085451 -1.2155372436685434 C6.96401288016856 -0.8165137431219307, 6.982275711847575 -0.2025895406114567, 7 -3.2800750208310675e-14 C7.017724288152425 0.2025895406113911, 7.017724288152424 -0.2025895406114242, 7 0" stroke="none" stroke-width="0" fill="#eee" style=""></path><path d="M7 0 C7 0.40517908122283747, 6.964012880168563 0.816513743121899, 6.893654271085456 1.2155372436685123 C6.823295662002349 1.6145607442151257, 6.716427752933756 2.013397210557766, 6.5778483455013586 2.394141003279681 C6.439268938068961 2.7748847960015954, 6.26476736710249 3.149104622578984, 6.062177826491071 3.4999999999999996 C5.859588285879653 3.8508953774210153, 5.622755194947063 4.189128084166967, 5.362311101832846 4.499513267805774 C5.10186700871863 4.809898451444582, 4.809898451444583 5.10186700871863, 4.499513267805775 5.362311101832846 C4.189128084166968 5.622755194947063, 3.8508953774210166 5.859588285879652, 3.500000000000001 6.06217782649107 C3.149104622578985 6.264767367102489, 2.7748847960015963 6.439268938068961, 2.3941410032796817 6.5778483455013586 C2.013397210557767 6.716427752933756, 1.6145607442151264 6.823295662002349, 1.2155372436685128 6.893654271085456 C0.8165137431218992 6.964012880168563, 0.4051790812228379 7, 4.286263797015736e-16 7 C-0.405179081222837 7, -0.8165137431218985 6.964012880168563, -1.2155372436685121 6.893654271085456 C-1.6145607442151257 6.823295662002349, -2.0133972105577667 6.716427752933756, -2.394141003279681 6.5778483455013586 C-2.774884796001595 6.439268938068961, -3.149104622578983 6.26476736710249, -3.4999999999999982 6.062177826491071 C-3.8508953774210135 5.859588285879653, -4.189128084166966 5.6227551949470636, -4.499513267805773 5.362311101832848 C-4.809898451444581 5.101867008718632, -5.101867008718628 4.809898451444586, -5.3623111018328435 4.499513267805779 C-5.622755194947059 4.189128084166971, -5.859588285879649 3.8508953774210206, -6.062177826491068 3.5000000000000053 C-6.264767367102486 3.14910462257899, -6.439268938068958 2.774884796001602, -6.577848345501356 2.394141003279688 C-6.716427752933754 2.0133972105577738, -6.823295662002347 1.614560744215134, -6.893654271085454 1.215537243668521 C-6.9640128801685615 0.816513743121908, -6.999999999999999 0.4051790812228472, -7 1.0183126166254463e-14 C-7.000000000000001 -0.40517908122282686, -6.964012880168565 -0.8165137431218878, -6.893654271085459 -1.215537243668501 C-6.823295662002352 -1.6145607442151142, -6.716427752933759 -2.0133972105577542, -6.577848345501363 -2.394141003279669 C-6.439268938068967 -2.7748847960015834, -6.264767367102496 -3.149104622578972, -6.062177826491078 -3.4999999999999876 C-5.859588285879661 -3.8508953774210033, -5.6227551949470715 -4.1891280841669545, -5.362311101832856 -4.499513267805763 C-5.10186700871864 -4.809898451444571, -4.809898451444594 -5.10186700871862, -4.499513267805787 -5.362311101832836 C-4.189128084166979 -5.622755194947053, -3.850895377421028 -5.859588285879643, -3.5000000000000133 -6.062177826491062 C-3.1491046225789985 -6.264767367102482, -2.774884796001611 -6.439268938068954, -2.3941410032796973 -6.577848345501353 C-2.0133972105577835 -6.716427752933752, -1.6145607442151435 -6.823295662002345, -1.2155372436685306 -6.893654271085453 C-0.8165137431219176 -6.9640128801685615, -0.40517908122285695 -6.999999999999999, -1.9937625952807352e-14 -7 C0.4051790812228171 -7.000000000000001, 0.8165137431218781 -6.964012880168565, 1.2155372436684913 -6.89365427108546 C1.6145607442151044 -6.823295662002354, 2.013397210557745 -6.716427752933763, 2.3941410032796595 -6.5778483455013665 C2.774884796001574 -6.43926893806897, 3.149104622578963 -6.2647673671025, 3.499999999999979 -6.062177826491083 C3.8508953774209953 -5.859588285879665, 4.189128084166947 -5.622755194947077, 4.499513267805756 -5.362311101832862 C4.809898451444564 -5.1018670087186475, 5.101867008718613 -4.809898451444602, 5.362311101832829 -4.499513267805796 C5.622755194947046 -4.189128084166989, 5.859588285879637 -3.8508953774210393, 6.062177826491056 -3.500000000000025 C6.2647673671024755 -3.1491046225790105, 6.439268938068949 -2.774884796001623, 6.577848345501348 -2.3941410032797092 C6.716427752933747 -2.0133972105577955, 6.823295662002342 -1.6145607442151562, 6.893654271085451 -1.2155372436685434 C6.96401288016856 -0.8165137431219307, 6.982275711847575 -0.2025895406114567, 7 -3.2800750208310675e-14 C7.017724288152425 0.2025895406113911, 7.017724288152424 -0.2025895406114242, 7 0" stroke="#666" stroke-width="2" fill="none" style=""></path><g><path d="M2.5 0 C2.5 0.14470681472244193, 2.487147457203058 0.29161205111496386, 2.46201938253052 0.4341204441673258 C2.436891307857982 0.5766288372196877, 2.3987241974763416 0.7190704323420595, 2.3492315519647713 0.8550503583141718 C2.299738906453201 0.991030284286284, 2.2374169168223177 1.124680222349637, 2.165063509461097 1.2499999999999998 C2.092710102099876 1.3753197776503625, 2.0081268553382365 1.496117172916774, 1.915111107797445 1.6069690242163481 C1.8220953602566536 1.7178208755159223, 1.7178208755159226 1.8220953602566536, 1.6069690242163484 1.915111107797445 C1.4961171729167742 2.0081268553382365, 1.375319777650363 2.0927101020998755, 1.2500000000000002 2.1650635094610964 C1.1246802223496375 2.2374169168223172, 0.9910302842862845 2.2997389064532, 0.8550503583141721 2.349231551964771 C0.7190704323420597 2.3987241974763416, 0.576628837219688 2.436891307857982, 0.43412044416732604 2.46201938253052 C0.291612051114964 2.487147457203058, 0.14470681472244212 2.5, 1.5308084989341916e-16 2.5 C-0.1447068147224418 2.5, -0.2916120511149638 2.487147457203058, -0.43412044416732576 2.46201938253052 C-0.5766288372196877 2.436891307857982, -0.7190704323420595 2.3987241974763416, -0.8550503583141718 2.3492315519647713 C-0.991030284286284 2.299738906453201, -1.124680222349637 2.2374169168223177, -1.2499999999999996 2.165063509461097 C-1.375319777650362 2.092710102099876, -1.4961171729167733 2.008126855338237, -1.6069690242163475 1.9151111077974459 C-1.7178208755159217 1.8220953602566548, -1.822095360256653 1.7178208755159234, -1.9151111077974443 1.6069690242163495 C-2.0081268553382357 1.4961171729167755, -2.0927101020998746 1.3753197776503645, -2.1650635094610955 1.250000000000002 C-2.2374169168223164 1.1246802223496395, -2.2997389064531992 0.9910302842862865, -2.34923155196477 0.8550503583141743 C-2.3987241974763407 0.7190704323420621, -2.436891307857981 0.5766288372196907, -2.4620193825305194 0.434120444167329 C-2.487147457203058 0.29161205111496724, -2.5 0.14470681472244545, -2.5 3.636830773662308e-15 C-2.5 -0.14470681472243818, -2.4871474572030587 -0.2916120511149599, -2.4620193825305208 -0.4341204441673218 C-2.436891307857983 -0.5766288372196837, -2.398724197476343 -0.7190704323420553, -2.3492315519647726 -0.8550503583141675 C-2.2997389064532023 -0.9910302842862798, -2.23741691682232 -1.1246802223496328, -2.165063509461099 -1.2499999999999956 C-2.092710102099878 -1.3753197776503583, -2.00812685533824 -1.4961171729167695, -1.9151111077974488 -1.606969024216344 C-1.8220953602566576 -1.7178208755159183, -1.7178208755159263 -1.82209536025665, -1.6069690242163523 -1.9151111077974416 C-1.4961171729167784 -2.0081268553382334, -1.3753197776503672 -2.0927101020998724, -1.2500000000000047 -2.1650635094610937 C-1.1246802223496422 -2.237416916822315, -0.9910302842862897 -2.299738906453198, -0.8550503583141776 -2.3492315519647686 C-0.7190704323420656 -2.3987241974763394, -0.5766288372196942 -2.4368913078579806, -0.43412044416733236 -2.462019382530519 C-0.29161205111497057 -2.4871474572030574, -0.1447068147224489 -2.4999999999999996, -7.120580697431198e-15 -2.5 C0.14470681472243463 -2.5000000000000004, 0.29161205111495647 -2.487147457203059, 0.4341204441673183 -2.4620193825305217 C0.5766288372196802 -2.436891307857984, 0.7190704323420518 -2.3987241974763442, 0.8550503583141642 -2.349231551964774 C0.9910302842862766 -2.2997389064532037, 1.1246802223496295 -2.2374169168223212, 1.2499999999999925 -2.165063509461101 C1.3753197776503554 -2.0927101020998804, 1.4961171729167668 -2.008126855338242, 1.6069690242163412 -1.915111107797451 C1.7178208755159157 -1.82209536025666, 1.8220953602566472 -1.7178208755159294, 1.915111107797439 -1.6069690242163557 C2.0081268553382308 -1.496117172916782, 2.09271010209987 -1.3753197776503712, 2.1650635094610915 -1.2500000000000089 C2.237416916822313 -1.1246802223496466, 2.299738906453196 -0.9910302842862939, 2.3492315519647673 -0.855050358314182 C2.3987241974763385 -0.71907043234207, 2.4368913078579792 -0.5766288372196986, 2.462019382530518 -0.4341204441673369 C2.487147457203057 -0.29161205111497523, 2.4936698970884197 -0.07235340736123454, 2.5 -1.1714553645825241e-14 C2.5063301029115803 0.07235340736121111, 2.50633010291158 -0.07235340736122292, 2.5 0" stroke="none" stroke-width="0" fill="#000" style=""></path><path d="M2.5 0 C2.5 0.14470681472244193, 2.487147457203058 0.29161205111496386, 2.46201938253052 0.4341204441673258 C2.436891307857982 0.5766288372196877, 2.3987241974763416 0.7190704323420595, 2.3492315519647713 0.8550503583141718 C2.299738906453201 0.991030284286284, 2.2374169168223177 1.124680222349637, 2.165063509461097 1.2499999999999998 C2.092710102099876 1.3753197776503625, 2.0081268553382365 1.496117172916774, 1.915111107797445 1.6069690242163481 C1.8220953602566536 1.7178208755159223, 1.7178208755159226 1.8220953602566536, 1.6069690242163484 1.915111107797445 C1.4961171729167742 2.0081268553382365, 1.375319777650363 2.0927101020998755, 1.2500000000000002 2.1650635094610964 C1.1246802223496375 2.2374169168223172, 0.9910302842862845 2.2997389064532, 0.8550503583141721 2.349231551964771 C0.7190704323420597 2.3987241974763416, 0.576628837219688 2.436891307857982, 0.43412044416732604 2.46201938253052 C0.291612051114964 2.487147457203058, 0.14470681472244212 2.5, 1.5308084989341916e-16 2.5 C-0.1447068147224418 2.5, -0.2916120511149638 2.487147457203058, -0.43412044416732576 2.46201938253052 C-0.5766288372196877 2.436891307857982, -0.7190704323420595 2.3987241974763416, -0.8550503583141718 2.3492315519647713 C-0.991030284286284 2.299738906453201, -1.124680222349637 2.2374169168223177, -1.2499999999999996 2.165063509461097 C-1.375319777650362 2.092710102099876, -1.4961171729167733 2.008126855338237, -1.6069690242163475 1.9151111077974459 C-1.7178208755159217 1.8220953602566548, -1.822095360256653 1.7178208755159234, -1.9151111077974443 1.6069690242163495 C-2.0081268553382357 1.4961171729167755, -2.0927101020998746 1.3753197776503645, -2.1650635094610955 1.250000000000002 C-2.2374169168223164 1.1246802223496395, -2.2997389064531992 0.9910302842862865, -2.34923155196477 0.8550503583141743 C-2.3987241974763407 0.7190704323420621, -2.436891307857981 0.5766288372196907, -2.4620193825305194 0.434120444167329 C-2.487147457203058 0.29161205111496724, -2.5 0.14470681472244545, -2.5 3.636830773662308e-15 C-2.5 -0.14470681472243818, -2.4871474572030587 -0.2916120511149599, -2.4620193825305208 -0.4341204441673218 C-2.436891307857983 -0.5766288372196837, -2.398724197476343 -0.7190704323420553, -2.3492315519647726 -0.8550503583141675 C-2.2997389064532023 -0.9910302842862798, -2.23741691682232 -1.1246802223496328, -2.165063509461099 -1.2499999999999956 C-2.092710102099878 -1.3753197776503583, -2.00812685533824 -1.4961171729167695, -1.9151111077974488 -1.606969024216344 C-1.8220953602566576 -1.7178208755159183, -1.7178208755159263 -1.82209536025665, -1.6069690242163523 -1.9151111077974416 C-1.4961171729167784 -2.0081268553382334, -1.3753197776503672 -2.0927101020998724, -1.2500000000000047 -2.1650635094610937 C-1.1246802223496422 -2.237416916822315, -0.9910302842862897 -2.299738906453198, -0.8550503583141776 -2.3492315519647686 C-0.7190704323420656 -2.3987241974763394, -0.5766288372196942 -2.4368913078579806, -0.43412044416733236 -2.462019382530519 C-0.29161205111497057 -2.4871474572030574, -0.1447068147224489 -2.4999999999999996, -7.120580697431198e-15 -2.5 C0.14470681472243463 -2.5000000000000004, 0.29161205111495647 -2.487147457203059, 0.4341204441673183 -2.4620193825305217 C0.5766288372196802 -2.436891307857984, 0.7190704323420518 -2.3987241974763442, 0.8550503583141642 -2.349231551964774 C0.9910302842862766 -2.2997389064532037, 1.1246802223496295 -2.2374169168223212, 1.2499999999999925 -2.165063509461101 C1.3753197776503554 -2.0927101020998804, 1.4961171729167668 -2.008126855338242, 1.6069690242163412 -1.915111107797451 C1.7178208755159157 -1.82209536025666, 1.8220953602566472 -1.7178208755159294, 1.915111107797439 -1.6069690242163557 C2.0081268553382308 -1.496117172916782, 2.09271010209987 -1.3753197776503712, 2.1650635094610915 -1.2500000000000089 C2.237416916822313 -1.1246802223496466, 2.299738906453196 -0.9910302842862939, 2.3492315519647673 -0.855050358314182 C2.3987241974763385 -0.71907043234207, 2.4368913078579792 -0.5766288372196986, 2.462019382530518 -0.4341204441673369 C2.487147457203057 -0.29161205111497523, 2.4936698970884197 -0.07235340736123454, 2.5 -1.1714553645825241e-14 C2.5063301029115803 0.07235340736121111, 2.50633010291158 -0.07235340736122292, 2.5 0" stroke="#000" stroke-width="2" fill="none" style=""></path></g></g></g></g></g><g class="root" transform="translate(53.872161865234375, 636.3409423828125)"><g class="clusters"><g class=" statediagram-state statediagram-cluster " id="CaseStates" data-id="CaseStates" data-look="classic"><g><rect class="outer" x="8" y="8" width="305.201699256897" height="586.340913772583" data-look="classic"></rect></g><g class="cluster-label" transform="translate(112.09943056106567, 9)"><foreignobject width="97.00283813476562" height="26.377840042114258"><div xmlns="http://www.w3.org/1999/xhtml" style="display: inline-block; padding-right: 1px; white-space: nowrap;"><span class="nodeLabel">用例评审状态</span></div></foreignobject></g><rect class="inner" x="8" y="36.37784004211426" width="305.201699256897" height="553.9630737304688"></rect></g></g><g class="edgePaths"><path d="M153.083,59.5L153.083,67.63C153.083,75.759,153.083,92.019,153.083,108.278C153.083,124.538,153.083,140.797,153.083,148.927L153.083,157.057" id="edge7" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M137.471,195.614L130.887,203.743C124.304,211.873,111.137,228.133,111.137,244.392C111.137,260.652,124.304,276.911,130.887,285.041L137.471,293.17" id="edge8" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M153.083,331.727L153.083,339.857C153.083,347.987,153.083,364.246,153.083,380.506C153.083,396.765,153.083,413.025,153.083,421.154L153.083,429.284" id="edge9" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M168.695,293.17L175.279,285.041C181.862,276.911,195.03,260.652,195.03,244.392C195.03,228.133,181.862,211.873,175.279,203.743L168.695,195.614" id="edge10" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path><path d="M153.083,467.841L153.083,474.091C153.083,480.341,153.083,492.841,153.083,505.341C153.083,517.841,153.083,530.341,153.083,536.591L153.083,542.841" id="edge11" class=" edge-thickness-normal edge-pattern-solid transition" style=";fill:none" marker-end="url(#mermaid-1784000615393_stateDiagram-barbEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel" transform="translate(153.08309364318848, 108.27840900421143)"><g class="label" transform="translate(-51.640625, -11.278409004211426)"><foreignobject width="103.28125" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>AI评审发现问题</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(97.96945858001709, 244.39204692840576)"><g class="label" transform="translate(-30.078123092651367, -11.278409004211426)"><foreignobject width="60.156246185302734" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>保存修改</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(153.08309364318848, 380.5056848526001)"><g class="label" transform="translate(-45.1136360168457, -11.278409004211426)"><foreignobject width="90.2272720336914" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>重新评审通过</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(208.19672870635986, 244.39204692840576)"><g class="label" transform="translate(-60.149147033691406, -11.278409004211426)"><foreignobject width="120.29829406738281" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>重新评审仍有问题</p></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g></g><g class="nodes"><g class="node default" id="state-CaseStates_start-7" transform="translate(153.08309364318848, 52.5)"><circle class="state-start" r="7" width="14" height="14"></circle></g><g class="node  statediagram-state " id="state-needs_modification-10" transform="translate(153.08309364318848, 176.3352279663086)"><rect class="basic label-container" style="" rx="5" ry="5" x="-73.95880126953125" y="-19.278409004211426" width="147.9176025390625" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-65.95880126953125, -11.278409004211426)"><rect></rect><foreignobject width="131.9176025390625" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>needs_modification</p></span></div></foreignobject></g></g><g class="node  statediagram-state " id="state-modified_pending_review-10" transform="translate(153.08309364318848, 312.44886589050293)"><rect class="basic label-container" style="" rx="5" ry="5" x="-94.86079406738281" y="-19.278409004211426" width="189.72158813476562" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-86.86079406738281, -11.278409004211426)"><rect></rect><foreignobject width="173.72158813476562" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>modified_pending_review</p></span></div></foreignobject></g></g><g class="node  statediagram-state " id="state-review_passed-11" transform="translate(153.08309364318848, 448.56250381469727)"><rect class="basic label-container" style="" rx="5" ry="5" x="-57.005680084228516" y="-19.278409004211426" width="114.01136016845703" height="38.55681800842285"></rect><g class="label" style="" transform="translate(-49.005680084228516, -11.278409004211426)"><rect></rect><foreignobject width="98.01136016845703" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>review_passed</p></span></div></foreignobject></g></g><g class="node default" id="state-CaseStates_end-11" transform="translate(153.08309364318848, 549.840913772583)"><g><path d="M7 0 C7 0.40517908122283747, 6.964012880168563 0.816513743121899, 6.893654271085456 1.2155372436685123 C6.823295662002349 1.6145607442151257, 6.716427752933756 2.013397210557766, 6.5778483455013586 2.394141003279681 C6.439268938068961 2.7748847960015954, 6.26476736710249 3.149104622578984, 6.062177826491071 3.4999999999999996 C5.859588285879653 3.8508953774210153, 5.622755194947063 4.189128084166967, 5.362311101832846 4.499513267805774 C5.10186700871863 4.809898451444582, 4.809898451444583 5.10186700871863, 4.499513267805775 5.362311101832846 C4.189128084166968 5.622755194947063, 3.8508953774210166 5.859588285879652, 3.500000000000001 6.06217782649107 C3.149104622578985 6.264767367102489, 2.7748847960015963 6.439268938068961, 2.3941410032796817 6.5778483455013586 C2.013397210557767 6.716427752933756, 1.6145607442151264 6.823295662002349, 1.2155372436685128 6.893654271085456 C0.8165137431218992 6.964012880168563, 0.4051790812228379 7, 4.286263797015736e-16 7 C-0.405179081222837 7, -0.8165137431218985 6.964012880168563, -1.2155372436685121 6.893654271085456 C-1.6145607442151257 6.823295662002349, -2.0133972105577667 6.716427752933756, -2.394141003279681 6.5778483455013586 C-2.774884796001595 6.439268938068961, -3.149104622578983 6.26476736710249, -3.4999999999999982 6.062177826491071 C-3.8508953774210135 5.859588285879653, -4.189128084166966 5.6227551949470636, -4.499513267805773 5.362311101832848 C-4.809898451444581 5.101867008718632, -5.101867008718628 4.809898451444586, -5.3623111018328435 4.499513267805779 C-5.622755194947059 4.189128084166971, -5.859588285879649 3.8508953774210206, -6.062177826491068 3.5000000000000053 C-6.264767367102486 3.14910462257899, -6.439268938068958 2.774884796001602, -6.577848345501356 2.394141003279688 C-6.716427752933754 2.0133972105577738, -6.823295662002347 1.614560744215134, -6.893654271085454 1.215537243668521 C-6.9640128801685615 0.816513743121908, -6.999999999999999 0.4051790812228472, -7 1.0183126166254463e-14 C-7.000000000000001 -0.40517908122282686, -6.964012880168565 -0.8165137431218878, -6.893654271085459 -1.215537243668501 C-6.823295662002352 -1.6145607442151142, -6.716427752933759 -2.0133972105577542, -6.577848345501363 -2.394141003279669 C-6.439268938068967 -2.7748847960015834, -6.264767367102496 -3.149104622578972, -6.062177826491078 -3.4999999999999876 C-5.859588285879661 -3.8508953774210033, -5.6227551949470715 -4.1891280841669545, -5.362311101832856 -4.499513267805763 C-5.10186700871864 -4.809898451444571, -4.809898451444594 -5.10186700871862, -4.499513267805787 -5.362311101832836 C-4.189128084166979 -5.622755194947053, -3.850895377421028 -5.859588285879643, -3.5000000000000133 -6.062177826491062 C-3.1491046225789985 -6.264767367102482, -2.774884796001611 -6.439268938068954, -2.3941410032796973 -6.577848345501353 C-2.0133972105577835 -6.716427752933752, -1.6145607442151435 -6.823295662002345, -1.2155372436685306 -6.893654271085453 C-0.8165137431219176 -6.9640128801685615, -0.40517908122285695 -6.999999999999999, -1.9937625952807352e-14 -7 C0.4051790812228171 -7.000000000000001, 0.8165137431218781 -6.964012880168565, 1.2155372436684913 -6.89365427108546 C1.6145607442151044 -6.823295662002354, 2.013397210557745 -6.716427752933763, 2.3941410032796595 -6.5778483455013665 C2.774884796001574 -6.43926893806897, 3.149104622578963 -6.2647673671025, 3.499999999999979 -6.062177826491083 C3.8508953774209953 -5.859588285879665, 4.189128084166947 -5.622755194947077, 4.499513267805756 -5.362311101832862 C4.809898451444564 -5.1018670087186475, 5.101867008718613 -4.809898451444602, 5.362311101832829 -4.499513267805796 C5.622755194947046 -4.189128084166989, 5.859588285879637 -3.8508953774210393, 6.062177826491056 -3.500000000000025 C6.2647673671024755 -3.1491046225790105, 6.439268938068949 -2.774884796001623, 6.577848345501348 -2.3941410032797092 C6.716427752933747 -2.0133972105577955, 6.823295662002342 -1.6145607442151562, 6.893654271085451 -1.2155372436685434 C6.96401288016856 -0.8165137431219307, 6.982275711847575 -0.2025895406114567, 7 -3.2800750208310675e-14 C7.017724288152425 0.2025895406113911, 7.017724288152424 -0.2025895406114242, 7 0" stroke="none" stroke-width="0" fill="#eee" style=""></path><path d="M7 0 C7 0.40517908122283747, 6.964012880168563 0.816513743121899, 6.893654271085456 1.2155372436685123 C6.823295662002349 1.6145607442151257, 6.716427752933756 2.013397210557766, 6.5778483455013586 2.394141003279681 C6.439268938068961 2.7748847960015954, 6.26476736710249 3.149104622578984, 6.062177826491071 3.4999999999999996 C5.859588285879653 3.8508953774210153, 5.622755194947063 4.189128084166967, 5.362311101832846 4.499513267805774 C5.10186700871863 4.809898451444582, 4.809898451444583 5.10186700871863, 4.499513267805775 5.362311101832846 C4.189128084166968 5.622755194947063, 3.8508953774210166 5.859588285879652, 3.500000000000001 6.06217782649107 C3.149104622578985 6.264767367102489, 2.7748847960015963 6.439268938068961, 2.3941410032796817 6.5778483455013586 C2.013397210557767 6.716427752933756, 1.6145607442151264 6.823295662002349, 1.2155372436685128 6.893654271085456 C0.8165137431218992 6.964012880168563, 0.4051790812228379 7, 4.286263797015736e-16 7 C-0.405179081222837 7, -0.8165137431218985 6.964012880168563, -1.2155372436685121 6.893654271085456 C-1.6145607442151257 6.823295662002349, -2.0133972105577667 6.716427752933756, -2.394141003279681 6.5778483455013586 C-2.774884796001595 6.439268938068961, -3.149104622578983 6.26476736710249, -3.4999999999999982 6.062177826491071 C-3.8508953774210135 5.859588285879653, -4.189128084166966 5.6227551949470636, -4.499513267805773 5.362311101832848 C-4.809898451444581 5.101867008718632, -5.101867008718628 4.809898451444586, -5.3623111018328435 4.499513267805779 C-5.622755194947059 4.189128084166971, -5.859588285879649 3.8508953774210206, -6.062177826491068 3.5000000000000053 C-6.264767367102486 3.14910462257899, -6.439268938068958 2.774884796001602, -6.577848345501356 2.394141003279688 C-6.716427752933754 2.0133972105577738, -6.823295662002347 1.614560744215134, -6.893654271085454 1.215537243668521 C-6.9640128801685615 0.816513743121908, -6.999999999999999 0.4051790812228472, -7 1.0183126166254463e-14 C-7.000000000000001 -0.40517908122282686, -6.964012880168565 -0.8165137431218878, -6.893654271085459 -1.215537243668501 C-6.823295662002352 -1.6145607442151142, -6.716427752933759 -2.0133972105577542, -6.577848345501363 -2.394141003279669 C-6.439268938068967 -2.7748847960015834, -6.264767367102496 -3.149104622578972, -6.062177826491078 -3.4999999999999876 C-5.859588285879661 -3.8508953774210033, -5.6227551949470715 -4.1891280841669545, -5.362311101832856 -4.499513267805763 C-5.10186700871864 -4.809898451444571, -4.809898451444594 -5.10186700871862, -4.499513267805787 -5.362311101832836 C-4.189128084166979 -5.622755194947053, -3.850895377421028 -5.859588285879643, -3.5000000000000133 -6.062177826491062 C-3.1491046225789985 -6.264767367102482, -2.774884796001611 -6.439268938068954, -2.3941410032796973 -6.577848345501353 C-2.0133972105577835 -6.716427752933752, -1.6145607442151435 -6.823295662002345, -1.2155372436685306 -6.893654271085453 C-0.8165137431219176 -6.9640128801685615, -0.40517908122285695 -6.999999999999999, -1.9937625952807352e-14 -7 C0.4051790812228171 -7.000000000000001, 0.8165137431218781 -6.964012880168565, 1.2155372436684913 -6.89365427108546 C1.6145607442151044 -6.823295662002354, 2.013397210557745 -6.716427752933763, 2.3941410032796595 -6.5778483455013665 C2.774884796001574 -6.43926893806897, 3.149104622578963 -6.2647673671025, 3.499999999999979 -6.062177826491083 C3.8508953774209953 -5.859588285879665, 4.189128084166947 -5.622755194947077, 4.499513267805756 -5.362311101832862 C4.809898451444564 -5.1018670087186475, 5.101867008718613 -4.809898451444602, 5.362311101832829 -4.499513267805796 C5.622755194947046 -4.189128084166989, 5.859588285879637 -3.8508953774210393, 6.062177826491056 -3.500000000000025 C6.2647673671024755 -3.1491046225790105, 6.439268938068949 -2.774884796001623, 6.577848345501348 -2.3941410032797092 C6.716427752933747 -2.0133972105577955, 6.823295662002342 -1.6145607442151562, 6.893654271085451 -1.2155372436685434 C6.96401288016856 -0.8165137431219307, 6.982275711847575 -0.2025895406114567, 7 -3.2800750208310675e-14 C7.017724288152425 0.2025895406113911, 7.017724288152424 -0.2025895406114242, 7 0" stroke="#666" stroke-width="2" fill="none" style=""></path><g><path d="M2.5 0 C2.5 0.14470681472244193, 2.487147457203058 0.29161205111496386, 2.46201938253052 0.4341204441673258 C2.436891307857982 0.5766288372196877, 2.3987241974763416 0.7190704323420595, 2.3492315519647713 0.8550503583141718 C2.299738906453201 0.991030284286284, 2.2374169168223177 1.124680222349637, 2.165063509461097 1.2499999999999998 C2.092710102099876 1.3753197776503625, 2.0081268553382365 1.496117172916774, 1.915111107797445 1.6069690242163481 C1.8220953602566536 1.7178208755159223, 1.7178208755159226 1.8220953602566536, 1.6069690242163484 1.915111107797445 C1.4961171729167742 2.0081268553382365, 1.375319777650363 2.0927101020998755, 1.2500000000000002 2.1650635094610964 C1.1246802223496375 2.2374169168223172, 0.9910302842862845 2.2997389064532, 0.8550503583141721 2.349231551964771 C0.7190704323420597 2.3987241974763416, 0.576628837219688 2.436891307857982, 0.43412044416732604 2.46201938253052 C0.291612051114964 2.487147457203058, 0.14470681472244212 2.5, 1.5308084989341916e-16 2.5 C-0.1447068147224418 2.5, -0.2916120511149638 2.487147457203058, -0.43412044416732576 2.46201938253052 C-0.5766288372196877 2.436891307857982, -0.7190704323420595 2.3987241974763416, -0.8550503583141718 2.3492315519647713 C-0.991030284286284 2.299738906453201, -1.124680222349637 2.2374169168223177, -1.2499999999999996 2.165063509461097 C-1.375319777650362 2.092710102099876, -1.4961171729167733 2.008126855338237, -1.6069690242163475 1.9151111077974459 C-1.7178208755159217 1.8220953602566548, -1.822095360256653 1.7178208755159234, -1.9151111077974443 1.6069690242163495 C-2.0081268553382357 1.4961171729167755, -2.0927101020998746 1.3753197776503645, -2.1650635094610955 1.250000000000002 C-2.2374169168223164 1.1246802223496395, -2.2997389064531992 0.9910302842862865, -2.34923155196477 0.8550503583141743 C-2.3987241974763407 0.7190704323420621, -2.436891307857981 0.5766288372196907, -2.4620193825305194 0.434120444167329 C-2.487147457203058 0.29161205111496724, -2.5 0.14470681472244545, -2.5 3.636830773662308e-15 C-2.5 -0.14470681472243818, -2.4871474572030587 -0.2916120511149599, -2.4620193825305208 -0.4341204441673218 C-2.436891307857983 -0.5766288372196837, -2.398724197476343 -0.7190704323420553, -2.3492315519647726 -0.8550503583141675 C-2.2997389064532023 -0.9910302842862798, -2.23741691682232 -1.1246802223496328, -2.165063509461099 -1.2499999999999956 C-2.092710102099878 -1.3753197776503583, -2.00812685533824 -1.4961171729167695, -1.9151111077974488 -1.606969024216344 C-1.8220953602566576 -1.7178208755159183, -1.7178208755159263 -1.82209536025665, -1.6069690242163523 -1.9151111077974416 C-1.4961171729167784 -2.0081268553382334, -1.3753197776503672 -2.0927101020998724, -1.2500000000000047 -2.1650635094610937 C-1.1246802223496422 -2.237416916822315, -0.9910302842862897 -2.299738906453198, -0.8550503583141776 -2.3492315519647686 C-0.7190704323420656 -2.3987241974763394, -0.5766288372196942 -2.4368913078579806, -0.43412044416733236 -2.462019382530519 C-0.29161205111497057 -2.4871474572030574, -0.1447068147224489 -2.4999999999999996, -7.120580697431198e-15 -2.5 C0.14470681472243463 -2.5000000000000004, 0.29161205111495647 -2.487147457203059, 0.4341204441673183 -2.4620193825305217 C0.5766288372196802 -2.436891307857984, 0.7190704323420518 -2.3987241974763442, 0.8550503583141642 -2.349231551964774 C0.9910302842862766 -2.2997389064532037, 1.1246802223496295 -2.2374169168223212, 1.2499999999999925 -2.165063509461101 C1.3753197776503554 -2.0927101020998804, 1.4961171729167668 -2.008126855338242, 1.6069690242163412 -1.915111107797451 C1.7178208755159157 -1.82209536025666, 1.8220953602566472 -1.7178208755159294, 1.915111107797439 -1.6069690242163557 C2.0081268553382308 -1.496117172916782, 2.09271010209987 -1.3753197776503712, 2.1650635094610915 -1.2500000000000089 C2.237416916822313 -1.1246802223496466, 2.299738906453196 -0.9910302842862939, 2.3492315519647673 -0.855050358314182 C2.3987241974763385 -0.71907043234207, 2.4368913078579792 -0.5766288372196986, 2.462019382530518 -0.4341204441673369 C2.487147457203057 -0.29161205111497523, 2.4936698970884197 -0.07235340736123454, 2.5 -1.1714553645825241e-14 C2.5063301029115803 0.07235340736121111, 2.50633010291158 -0.07235340736122292, 2.5 0" stroke="none" stroke-width="0" fill="#000" style=""></path><path d="M2.5 0 C2.5 0.14470681472244193, 2.487147457203058 0.29161205111496386, 2.46201938253052 0.4341204441673258 C2.436891307857982 0.5766288372196877, 2.3987241974763416 0.7190704323420595, 2.3492315519647713 0.8550503583141718 C2.299738906453201 0.991030284286284, 2.2374169168223177 1.124680222349637, 2.165063509461097 1.2499999999999998 C2.092710102099876 1.3753197776503625, 2.0081268553382365 1.496117172916774, 1.915111107797445 1.6069690242163481 C1.8220953602566536 1.7178208755159223, 1.7178208755159226 1.8220953602566536, 1.6069690242163484 1.915111107797445 C1.4961171729167742 2.0081268553382365, 1.375319777650363 2.0927101020998755, 1.2500000000000002 2.1650635094610964 C1.1246802223496375 2.2374169168223172, 0.9910302842862845 2.2997389064532, 0.8550503583141721 2.349231551964771 C0.7190704323420597 2.3987241974763416, 0.576628837219688 2.436891307857982, 0.43412044416732604 2.46201938253052 C0.291612051114964 2.487147457203058, 0.14470681472244212 2.5, 1.5308084989341916e-16 2.5 C-0.1447068147224418 2.5, -0.2916120511149638 2.487147457203058, -0.43412044416732576 2.46201938253052 C-0.5766288372196877 2.436891307857982, -0.7190704323420595 2.3987241974763416, -0.8550503583141718 2.3492315519647713 C-0.991030284286284 2.299738906453201, -1.124680222349637 2.2374169168223177, -1.2499999999999996 2.165063509461097 C-1.375319777650362 2.092710102099876, -1.4961171729167733 2.008126855338237, -1.6069690242163475 1.9151111077974459 C-1.7178208755159217 1.8220953602566548, -1.822095360256653 1.7178208755159234, -1.9151111077974443 1.6069690242163495 C-2.0081268553382357 1.4961171729167755, -2.0927101020998746 1.3753197776503645, -2.1650635094610955 1.250000000000002 C-2.2374169168223164 1.1246802223496395, -2.2997389064531992 0.9910302842862865, -2.34923155196477 0.8550503583141743 C-2.3987241974763407 0.7190704323420621, -2.436891307857981 0.5766288372196907, -2.4620193825305194 0.434120444167329 C-2.487147457203058 0.29161205111496724, -2.5 0.14470681472244545, -2.5 3.636830773662308e-15 C-2.5 -0.14470681472243818, -2.4871474572030587 -0.2916120511149599, -2.4620193825305208 -0.4341204441673218 C-2.436891307857983 -0.5766288372196837, -2.398724197476343 -0.7190704323420553, -2.3492315519647726 -0.8550503583141675 C-2.2997389064532023 -0.9910302842862798, -2.23741691682232 -1.1246802223496328, -2.165063509461099 -1.2499999999999956 C-2.092710102099878 -1.3753197776503583, -2.00812685533824 -1.4961171729167695, -1.9151111077974488 -1.606969024216344 C-1.8220953602566576 -1.7178208755159183, -1.7178208755159263 -1.82209536025665, -1.6069690242163523 -1.9151111077974416 C-1.4961171729167784 -2.0081268553382334, -1.3753197776503672 -2.0927101020998724, -1.2500000000000047 -2.1650635094610937 C-1.1246802223496422 -2.237416916822315, -0.9910302842862897 -2.299738906453198, -0.8550503583141776 -2.3492315519647686 C-0.7190704323420656 -2.3987241974763394, -0.5766288372196942 -2.4368913078579806, -0.43412044416733236 -2.462019382530519 C-0.29161205111497057 -2.4871474572030574, -0.1447068147224489 -2.4999999999999996, -7.120580697431198e-15 -2.5 C0.14470681472243463 -2.5000000000000004, 0.29161205111495647 -2.487147457203059, 0.4341204441673183 -2.4620193825305217 C0.5766288372196802 -2.436891307857984, 0.7190704323420518 -2.3987241974763442, 0.8550503583141642 -2.349231551964774 C0.9910302842862766 -2.2997389064532037, 1.1246802223496295 -2.2374169168223212, 1.2499999999999925 -2.165063509461101 C1.3753197776503554 -2.0927101020998804, 1.4961171729167668 -2.008126855338242, 1.6069690242163412 -1.915111107797451 C1.7178208755159157 -1.82209536025666, 1.8220953602566472 -1.7178208755159294, 1.915111107797439 -1.6069690242163557 C2.0081268553382308 -1.496117172916782, 2.09271010209987 -1.3753197776503712, 2.1650635094610915 -1.2500000000000089 C2.237416916822313 -1.1246802223496466, 2.299738906453196 -0.9910302842862939, 2.3492315519647673 -0.855050358314182 C2.3987241974763385 -0.71907043234207, 2.4368913078579792 -0.5766288372196986, 2.462019382530518 -0.4341204441673369 C2.487147457203057 -0.29161205111497523, 2.4936698970884197 -0.07235340736123454, 2.5 -1.1714553645825241e-14 C2.5063301029115803 0.07235340736121111, 2.50633010291158 -0.07235340736122292, 2.5 0" stroke="#000" stroke-width="2" fill="none" style=""></path></g></g></g></g></g></g></g></g></svg></pre>
+          <figcaption>图3：建议状态与用例评审状态联动流转</figcaption>
+        </figure>
+
+        <h4>联动规则</h4>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>触发事件</th><th>建议状态变更</th><th>用例评审状态变更</th><th>其他副作用</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>AI 评审完成</td><td>创建建议，初始 <code>pending</code></td><td>→ <code>needs_modification</code></td><td>无</td></tr>
+              <tr><td>用户点击"去修改"</td><td><code>pending</code> → <code>editing</code></td><td>不变</td><td>无</td></tr>
+              <tr><td>用户保存用例修改</td><td>当前建议 → <code>resolved</code></td><td>→ <code>modified_pending_review</code></td><td>评审报告标记过期</td></tr>
+              <tr><td>用户忽略建议</td><td>→ <code>ignored</code></td><td>不变</td><td>无</td></tr>
+              <tr><td>用户恢复建议</td><td><code>ignored</code> → <code>pending</code></td><td>不变</td><td>无</td></tr>
+              <tr><td>重新评审通过</td><td>无新建议</td><td>→ <code>review_passed</code></td><td>无</td></tr>
+              <tr><td>重新评审仍有问题</td><td>创建新建议，初始 <code>pending</code></td><td>→ <code>needs_modification</code></td><td>无</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s5-2">保存用例的事务流程</h3>
+        <p>保存用例修改是整个需求中最复杂的操作，涉及多表联动。以下是事务内部的执行步骤：</p>
+
+        <figure class="diagram">
+          <pre class="mermaid" data-processed="true"><svg id="mermaid-1784000615454" width="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="flowchart" style="max-width: 604.6043701171875px;" viewBox="0 0 604.6043701171875 1787.2498779296875" role="graphics-document document" aria-roledescription="flowchart-v2"><style>#mermaid-1784000615454{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#000000;}#mermaid-1784000615454 .error-icon{fill:#552222;}#mermaid-1784000615454 .error-text{fill:#552222;stroke:#552222;}#mermaid-1784000615454 .edge-thickness-normal{stroke-width:1px;}#mermaid-1784000615454 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1784000615454 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1784000615454 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1784000615454 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1784000615454 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1784000615454 .marker{fill:#666;stroke:#666;}#mermaid-1784000615454 .marker.cross{stroke:#666;}#mermaid-1784000615454 svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1784000615454 p{margin:0;}#mermaid-1784000615454 .label{font-family:"trebuchet ms",verdana,arial,sans-serif;color:#000000;}#mermaid-1784000615454 .cluster-label text{fill:#333;}#mermaid-1784000615454 .cluster-label span{color:#333;}#mermaid-1784000615454 .cluster-label span p{background-color:transparent;}#mermaid-1784000615454 .label text,#mermaid-1784000615454 span{fill:#000000;color:#000000;}#mermaid-1784000615454 .node rect,#mermaid-1784000615454 .node circle,#mermaid-1784000615454 .node ellipse,#mermaid-1784000615454 .node polygon,#mermaid-1784000615454 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#mermaid-1784000615454 .rough-node .label text,#mermaid-1784000615454 .node .label text,#mermaid-1784000615454 .image-shape .label,#mermaid-1784000615454 .icon-shape .label{text-anchor:middle;}#mermaid-1784000615454 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-1784000615454 .rough-node .label,#mermaid-1784000615454 .node .label,#mermaid-1784000615454 .image-shape .label,#mermaid-1784000615454 .icon-shape .label{text-align:center;}#mermaid-1784000615454 .node.clickable{cursor:pointer;}#mermaid-1784000615454 .root .anchor path{fill:#666!important;stroke-width:0;stroke:#666;}#mermaid-1784000615454 .arrowheadPath{fill:#333333;}#mermaid-1784000615454 .edgePath .path{stroke:#666;stroke-width:2.0px;}#mermaid-1784000615454 .flowchart-link{stroke:#666;fill:none;}#mermaid-1784000615454 .edgeLabel{background-color:white;text-align:center;}#mermaid-1784000615454 .edgeLabel p{background-color:white;}#mermaid-1784000615454 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#mermaid-1784000615454 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#mermaid-1784000615454 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#mermaid-1784000615454 .cluster text{fill:#333;}#mermaid-1784000615454 .cluster span{color:#333;}#mermaid-1784000615454 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-1784000615454 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#mermaid-1784000615454 rect.text{fill:none;stroke-width:0;}#mermaid-1784000615454 .icon-shape,#mermaid-1784000615454 .image-shape{background-color:white;text-align:center;}#mermaid-1784000615454 .icon-shape p,#mermaid-1784000615454 .image-shape p{background-color:white;padding:2px;}#mermaid-1784000615454 .icon-shape rect,#mermaid-1784000615454 .image-shape rect{opacity:0.5;background-color:white;fill:white;}#mermaid-1784000615454 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g><marker id="mermaid-1784000615454_flowchart-v2-pointEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615454_flowchart-v2-pointStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="4.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 5 L 10 10 L 10 0 z" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615454_flowchart-v2-circleEnd" class="marker flowchart-v2" viewBox="0 0 10 10" refX="11" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-1784000615454_flowchart-v2-circleStart" class="marker flowchart-v2" viewBox="0 0 10 10" refX="-1" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><circle cx="5" cy="5" r="5" class="arrowMarkerPath" style="stroke-width: 1; stroke-dasharray: 1, 0;"></circle></marker><marker id="mermaid-1784000615454_flowchart-v2-crossEnd" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="12" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><marker id="mermaid-1784000615454_flowchart-v2-crossStart" class="marker cross flowchart-v2" viewBox="0 0 11 11" refX="-1" refY="5.2" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M 1,1 l 9,9 M 10,1 l -9,9" class="arrowMarkerPath" style="stroke-width: 2; stroke-dasharray: 1, 0;"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path d="M175.539,83.114L175.539,87.28C175.539,91.447,175.539,99.78,175.609,107.53C175.68,115.281,175.82,122.447,175.89,126.031L175.961,129.614" id="L_A_B_0" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M141.311,247.195L130.803,258.946C120.296,270.697,99.281,294.2,88.774,321.186C78.266,348.172,78.266,378.643,78.266,393.878L78.266,409.114" id="L_B_C_1" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M210.767,247.195L221.108,258.946C231.449,270.697,252.13,294.2,262.545,311.414C272.96,328.628,273.109,339.554,273.183,345.017L273.257,350.48" id="L_B_D_2" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M227.921,479.914L212.401,493.442C196.88,506.97,165.838,534.026,150.318,552.934C134.797,571.842,134.797,582.601,134.797,587.981L134.797,593.361" id="L_D_E_3" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M318.702,479.914L334.056,493.442C349.41,506.97,380.119,534.026,395.473,552.934C410.827,571.842,410.827,582.601,410.827,587.981L410.827,593.361" id="L_D_F_4" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M348.714,649.918L338.865,654.084C329.017,658.251,309.32,666.584,299.471,675.964C289.623,685.343,289.623,695.769,289.623,700.982L289.623,706.195" id="L_F_G_5" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M289.623,807.865L289.623,815.624C289.623,823.384,289.623,838.902,289.623,852.041C289.623,865.18,289.623,875.939,289.623,881.319L289.623,886.699" id="L_G_H_6" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M289.623,943.256L289.623,947.422C289.623,951.589,289.623,959.922,289.623,967.589C289.623,975.256,289.623,982.256,289.623,985.756L289.623,989.256" id="L_H_I_7" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M289.623,1068.369L289.623,1072.536C289.623,1076.703,289.623,1085.036,289.693,1092.786C289.763,1100.536,289.904,1107.703,289.974,1111.287L290.044,1114.87" id="L_I_J_8" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M240.953,1275.239L227.805,1289.397C214.657,1303.555,188.362,1331.871,175.214,1351.409C162.066,1370.947,162.066,1381.706,162.066,1387.086L162.066,1392.466" id="L_J_K_9" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M339.293,1275.239L352.274,1289.397C365.255,1303.555,391.217,1331.871,404.199,1353.289C417.18,1374.706,417.18,1389.225,417.18,1396.485L417.18,1403.744" id="L_J_L_10" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M162.066,1471.58L162.066,1475.746C162.066,1479.913,162.066,1488.246,171.812,1496.331C181.558,1504.416,201.051,1512.252,210.797,1516.17L220.543,1520.088" id="L_K_M_11" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M417.18,1460.301L417.18,1466.348C417.18,1472.394,417.18,1484.487,407.434,1494.451C397.687,1504.416,378.195,1512.252,368.449,1516.17L358.703,1520.088" id="L_L_M_12" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M289.623,1574.136L289.623,1578.303C289.623,1582.47,289.623,1590.803,289.623,1598.47C289.623,1606.136,289.623,1613.136,289.623,1616.636L289.623,1620.136" id="L_M_N_13" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M289.623,1676.693L289.623,1680.86C289.623,1685.027,289.623,1693.36,289.623,1701.027C289.623,1708.693,289.623,1715.693,289.623,1719.193L289.623,1722.693" id="L_N_O_14" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M472.939,649.918L482.788,654.084C492.636,658.251,512.334,666.584,522.252,674.334C532.171,682.085,532.312,689.251,532.382,692.835L532.452,696.418" id="L_F_P_15" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M532.531,818.642L532.447,824.605C532.364,830.568,532.197,842.494,532.114,853.837C532.031,865.18,532.031,875.939,532.031,881.319L532.031,886.699" id="L_P_Q_16" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path><path d="M532.031,943.256L532.031,947.422C532.031,951.589,532.031,959.922,532.031,969.469C532.031,979.015,532.031,989.775,532.031,995.154L532.031,1000.534" id="L_Q_R_17" class=" edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" style="" marker-end="url(#mermaid-1784000615454_flowchart-v2-pointEnd)"></path></g><g class="edgeLabels"><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(78.26633071899414, 317.70170307159424)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>否</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(272.8117866516113, 317.70170307159424)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>是</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(134.796875, 561.0823888778687)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>否</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(410.82669830322266, 561.0823888778687)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>是</p></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(162.06604766845703, 1360.1874952316284)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>是</p></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(417.17967987060547, 1360.1874952316284)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>否</p></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g><g class="edgeLabel" transform="translate(532.0305328369141, 854.420449256897)"><g class="label" transform="translate(-7.52130651473999, -11.278409004211426)"><foreignobject width="15.04261302947998" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "><p>是</p></span></div></foreignobject></g></g><g class="edgeLabel"><g class="label" transform="translate(0, 0)"><foreignobject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="edgeLabel "></span></div></foreignobject></g></g></g><g class="nodes"><g class="node default  " id="flowchart-A-12" transform="translate(175.53905868530273, 45.55681610107422)"><rect class="basic label-container" style="" x="-130" y="-37.55681800842285" width="260" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-100, -22.55681800842285)"><rect></rect><foreignobject width="200" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel "><p>收到 PATCH /api/cases/{caseId}</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-B-13" transform="translate(175.53905868530273, 207.26846313476562)"><polygon points="74.15482807159424,0 148.30965614318848,-74.15482807159424 74.15482807159424,-148.30965614318848 0,-74.15482807159424" class="label-container" transform="translate(-74.15482807159424,74.15482807159424)"></polygon><g class="label" style="" transform="translate(-47.87641906738281, -11.278409004211426)"><rect></rect><foreignobject width="95.75283813476562" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>用例是否存在?</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-C-15" transform="translate(78.26633071899414, 439.39204597473145)"><rect class="basic label-container" style="" x="-59.133522033691406" y="-26.278409004211426" width="118.26704406738281" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-29.133522033691406, -11.278409004211426)"><rect></rect><foreignobject width="58.26704406738281" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>返回 404</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-D-17" transform="translate(272.8117866516113, 439.39204597473145)"><polygon points="85.41193103790283,0 170.82386207580566,-85.41193103790283 85.41193103790283,-170.82386207580566 0,-85.41193103790283" class="label-container" transform="translate(-85.41193103790283,85.41193103790283)"></polygon><g class="label" style="" transform="translate(-59.133522033691406, -11.278409004211426)"><rect></rect><foreignobject width="118.26704406738281" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>version 是否匹配?</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-E-19" transform="translate(134.796875, 623.6392059326172)"><rect class="basic label-container" style="" x="-126.796875" y="-26.278409004211426" width="253.59375" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-96.796875, -11.278409004211426)"><rect></rect><foreignobject width="193.59375" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>返回 409 VERSION_CONFLICT</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-F-21" transform="translate(410.82669830322266, 623.6392059326172)"><rect class="basic label-container" style="" x="-99.23294830322266" y="-26.278409004211426" width="198.4658966064453" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-69.23294830322266, -11.278409004211426)"><rect></rect><foreignobject width="138.4658966064453" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>BEGIN TRANSACTION</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-G-23" transform="translate(289.62286376953125, 759.0298271179199)"><rect class="basic label-container" style="" x="-133.29544830322266" y="-48.835227966308594" width="266.5908966064453" height="97.67045593261719"></rect><g class="label" style="" transform="translate(-103.29544830322266, -33.835227966308594)"><rect></rect><foreignobject width="206.5908966064453" height="67.67045593261719"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel "><p>更新用例字段\n(title/steps/expected/script等)</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-H-25" transform="translate(289.62286376953125, 916.9772663116455)"><rect class="basic label-container" style="" x="-98.95596313476562" y="-26.278409004211426" width="197.91192626953125" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-68.95596313476562, -11.278409004211426)"><rect></rect><foreignobject width="137.91192626953125" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>version = version + 1</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-I-27" transform="translate(289.62286376953125, 1030.8124904632568)"><rect class="basic label-container" style="" x="-130" y="-37.55681800842285" width="260" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-100, -22.55681800842285)"><rect></rect><foreignobject width="200" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel "><p>review_status = modified_pending_review</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-J-29" transform="translate(289.62286376953125, 1221.139196395874)"><polygon points="102.76988697052002,0 205.53977394104004,-102.76988697052002 102.76988697052002,-205.53977394104004 0,-102.76988697052002" class="label-container" transform="translate(-102.76988697052002,102.76988697052002)"></polygon><g class="label" style="" transform="translate(-76.4914779663086, -11.278409004211426)"><rect></rect><foreignobject width="152.9829559326172" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>suggestionId 是否存在?</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-K-31" transform="translate(162.06604766845703, 1434.022720336914)"><rect class="basic label-container" style="" x="-130" y="-37.55681800842285" width="260" height="75.1136360168457"></rect><g class="label" style="" transform="translate(-100, -22.55681800842285)"><rect></rect><foreignobject width="200" height="45.1136360168457"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table; white-space: break-spaces; line-height: 1.5; max-width: 200px; text-align: center; width: 200px;"><span class="nodeLabel "><p>更新建议 status = resolved\n记录 handled_by, handled_at</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-L-33" transform="translate(417.17967987060547, 1434.022720336914)"><rect class="basic label-container" style="" x="-75.1136360168457" y="-26.278409004211426" width="150.2272720336914" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-45.1136360168457, -11.278409004211426)"><rect></rect><foreignobject width="90.2272720336914" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>跳过建议更新</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-M-35" transform="translate(289.62286376953125, 1547.8579444885254)"><rect class="basic label-container" style="" x="-124.33238220214844" y="-26.278409004211426" width="248.66476440429688" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-94.33238220214844, -11.278409004211426)"><rect></rect><foreignobject width="188.66476440429688" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>标记评审报告 is_expired = 1</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-N-39" transform="translate(289.62286376953125, 1650.4147605895996)"><rect class="basic label-container" style="" x="-56.69034004211426" y="-26.278409004211426" width="113.38068008422852" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-26.690340042114258, -11.278409004211426)"><rect></rect><foreignobject width="53.380680084228516" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>COMMIT</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-O-41" transform="translate(289.62286376953125, 1752.9715766906738)"><rect class="basic label-container" style="" x="-97.67755126953125" y="-26.278409004211426" width="195.3551025390625" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-67.67755126953125, -11.278409004211426)"><rect></rect><foreignobject width="135.3551025390625" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>返回 200 + 新版本号</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-P-43" transform="translate(532.0305328369141, 759.0298271179199)"><polygon points="59.11221408843994,0 118.22442817687988,-59.11221408843994 59.11221408843994,-118.22442817687988 0,-59.11221408843994" class="label-container" transform="translate(-59.11221408843994,59.11221408843994)"></polygon><g class="label" style="" transform="translate(-32.833805084228516, -11.278409004211426)"><rect></rect><foreignobject width="65.66761016845703" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>事务异常?</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-Q-45" transform="translate(532.0305328369141, 916.9772663116455)"><rect class="basic label-container" style="" x="-64.5738639831543" y="-26.278409004211426" width="129.1477279663086" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-34.5738639831543, -11.278409004211426)"><rect></rect><foreignobject width="69.1477279663086" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>ROLLBACK</p></span></div></foreignobject></g></g><g class="node default  " id="flowchart-R-47" transform="translate(532.0305328369141, 1030.8124904632568)"><rect class="basic label-container" style="" x="-59.133522033691406" y="-26.278409004211426" width="118.26704406738281" height="52.55681800842285"></rect><g class="label" style="" transform="translate(-29.133522033691406, -11.278409004211426)"><rect></rect><foreignobject width="58.26704406738281" height="22.55681800842285"><div xmlns="http://www.w3.org/1999/xhtml" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;"><span class="nodeLabel "><p>返回 500</p></span></div></foreignobject></g></g></g></g></g></svg></pre>
+          <figcaption>图4：保存用例修改的事务流程</figcaption>
+        </figure>
+
+        <h4>CRUD 层实现</h4>
+        <pre><code># crud.py 新增函数
+
+def update_case_with_suggestion(
+    db: Session,
+    case_id: int,
+    update_fields: dict,
+    expected_version: int,
+    suggestion_uid: str | None = None,
+    handled_by: str | None = None,
+) -&gt; tuple[TestCase | None, str | None]:
+    """
+    事务性更新用例并联动建议状态。
+    返回 (更新后的用例, 错误信息)。
+    错误信息为 None 表示成功。
+    """
+    case = db.query(TestCase).filter(TestCase.id == case_id).with_for_update().first()
+    if not case:
+        return None, "CASE_NOT_FOUND"
+
+    # 乐观锁校验
+    if case.version != expected_version:
+        return None, "VERSION_CONFLICT"
+
+    try:
+        # 1. 更新用例字段
+        for key, value in update_fields.items():
+            if hasattr(case, key) and value is not None:
+                setattr(case, key, value)
+
+        # 2. 版本号自增
+        case.version += 1
+
+        # 3. 评审状态流转
+        case.review_status = "modified_pending_review"
+
+        # 4. 建议状态回写
+        if suggestion_uid:
+            suggestion = db.query(ReviewSuggestion).filter(
+                ReviewSuggestion.suggestion_uid == suggestion_uid
+            ).first()
+            if suggestion:
+                suggestion.status = "resolved"
+                suggestion.handled_by = handled_by
+                suggestion.handled_at = datetime.datetime.now(datetime.timezone.utc)
+
+                # 5. 标记评审报告过期
+                db.query(ReviewReport).filter(
+                    ReviewReport.id == suggestion.review_report_id
+                ).update({ReviewReport.is_expired: 1})
+
+        db.commit()
+        db.refresh(case)
+        return case, None
+
+    except Exception as e:
+        db.rollback()
+        return None, f"TRANSACTION_ERROR: {e}"</code></pre>
+
+        <h3 id="s5-3">乐观锁与并发控制</h3>
+        <p>SQLite 默认使用 <code>DEFERRED</code> 事务隔离级别，写操作会获取排他锁。结合 <code>version</code> 字段实现乐观锁，核心逻辑是：<mark class="key">读取时获取当前 version，保存时校验 version 是否变化，若未变则更新并自增，若已变则拒绝保存</mark>。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>场景</th><th>客户端 A</th><th>客户端 B</th><th>结果</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>正常保存</td><td>读取 version=1</td><td>-</td><td>保存成功，version→2</td></tr>
+              <tr><td>顺序保存</td><td>读取 v=1，保存成功 v→2</td><td>读取 v=2，保存成功 v→3</td><td>两次都成功</td></tr>
+              <tr><td>并发冲突</td><td>读取 v=1</td><td>读取 v=1</td><td>A 先保存 v→2，B 保存时 v≠1 返回 409</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>由于 SQLite 不支持 <code>SELECT ... FOR UPDATE</code> 的行级锁（<code>with_for_update()</code> 在 SQLite 中会被忽略），乐观锁是主要的并发控制手段。在高并发场景下（本项目为单用户系统，实际不会出现），可考虑迁移到 PostgreSQL 使用行级锁。</p>
+
+        <h3 id="s5-4">AI评审Prompt改造</h3>
+        <p>现有 <code>REVIEW_PROMPT</code> 输出的建议仅包含 <code>case_title</code>、<code>issue</code>、<code>suggestion</code>、<code>example</code> 四个字段。需改造 Prompt，让 AI 输出结构化的建议数据，包含 <code>case_id</code>、<code>field_path</code>、<code>issue_type</code>、<code>severity</code>、<code>sample_patch</code> 等字段。</p>
+
+        <h4>改造后的 Prompt 输出格式</h4>
+        <pre><code>"suggestions": [
+  {
+    "case_title": "用例标题",
+    "case_index": 0,
+    "field_path": ["steps", "expected_result"],
+    "issue_type": "coverage_gap",
+    "severity": "medium",
+    "problem": "问题描述",
+    "suggestion": "改进建议",
+    "sample_patch": {
+      "steps": ["新增步骤1", "新增步骤2"],
+      "expected_result": "新的预期结果"
+    },
+    "example": "代码示例（可选）"
+  }
+]</code></pre>
+
+        <h4>改造要点</h4>
+        <ul>
+          <li>新增 <code>case_index</code> 字段（整数），AI 输出建议对应用例在输入列表中的索引，后端据此映射到 <code>case_id</code>。避免 AI 直接输出 case_id（可能幻觉）。</li>
+          <li>新增 <code>field_path</code> 数组，限定取值范围：<code>title</code>、<code>precondition</code>、<code>steps</code>、<code>expected</code>、<code>script</code>。</li>
+          <li>新增 <code>issue_type</code> 和 <code>severity</code> 枚举，在 Prompt 中给出明确的取值列表和定义。</li>
+          <li><code>sample_patch</code> 为结构化 JSON，按 <code>field_path</code> 中的字段给出参考修改内容。</li>
+          <li>保留 <code>example</code> 字段用于代码示例，向前兼容。</li>
+        </ul>
+
+        <h4>服务层改造：review_cases() 方法</h4>
+        <pre><code># services.py — review_cases() 改造要点
+
+async def review_cases(
+    self,
+    cases: list[GeneratedCase],
+    feature_points: list[FeaturePoint],
+    case_ids: list[int] | None = None,  # 新增：传入用例ID列表
+) -&gt; ReviewResponse:
+    """用例质量评审：测试用例 + 功能点 → 综合评分 + 结构化建议"""
+
+    # ... 调用 DeepSeek，解析 JSON ...
+
+    suggestions = []
+    for idx, s in enumerate(data.get("suggestions", [])):
+        # 通过 case_index 映射到真实 case_id
+        case_index = s.get("case_index", 0)
+        case_id = case_ids[case_index] if case_ids and case_index &lt; len(case_ids) else None
+
+        suggestions.append(ReviewSuggestion(
+            case_title=s.get("case_title", ""),
+            case_id=case_id,                    # 新增
+            field_path=s.get("field_path", []),  # 新增
+            issue_type=s.get("issue_type", "coverage_gap"),  # 新增
+            severity=s.get("severity", "medium"),  # 新增
+            problem=s.get("problem", s.get("issue", "")),
+            suggestion=s.get("suggestion", ""),
+            sample_patch=s.get("sample_patch"),    # 新增
+            example=s.get("example", ""),
+        ))
+
+    return ReviewResponse(...)</code></pre>
+
+        <h4>生成评审报告接口改造</h4>
+        <p><code>POST /api/projects/{project_id}/review/generate</code> 接口在调用 <code>review_cases()</code> 后，需将结构化建议持久化到 <code>review_suggestions</code> 表，同时为关联的用例设置 <code>review_status = needs_modification</code>。</p>
+
+        <pre><code># routes.py — generate_project_review() 改造要点
+
+# ... 调用 AI 评审 ...
+
+# 持久化结构化建议
+for idx, s in enumerate(result.suggestions):
+    suggestion_uid = f"S-{report.id}-{str(idx + 1).zfill(3)}"
+    create_review_suggestion(
+        db,
+        suggestion_uid=suggestion_uid,
+        review_report_id=report.id,
+        project_id=project_id,
+        case_id=s.case_id,
+        field_path=s.field_path,
+        issue_type=s.issue_type,
+        severity=s.severity,
+        problem=s.problem,
+        suggestion=s.suggestion,
+        sample_patch=s.sample_patch,
+    )
+
+    # 更新用例评审状态
+    if s.case_id:
+        update_test_case_review_status(db, s.case_id, "needs_modification")
+
+# review_reports.suggestions 仍存 JSON（向前兼容）
+# 但建议的权威数据源变为 review_suggestions 表</code></pre>
+      </section>
+
+      <!-- ==================== 6. 异常处理设计 ==================== -->
+      <section id="s6">
+        <h2>六、异常处理设计</h2>
+
+        <h3 id="s6-1">异常映射表</h3>
+        <p>将 PRD 第八章定义的异常场景映射为具体的 HTTP 状态码、错误码和后端处理逻辑。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>异常场景</th><th>HTTP 状态码</th><th>errorCode</th><th>后端处理</th><th>响应 detail</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>用例不存在</td><td>404</td><td><code>CASE_NOT_FOUND</code></td><td>不打开编辑态，建议保持 <code>pending</code></td><td>该用例已不存在，可能已被删除</td></tr>
+              <tr><td>建议不存在</td><td>404</td><td><code>SUGGESTION_NOT_FOUND</code></td><td>仍可按 caseId 打开用例，不展示建议上下文</td><td>建议记录不存在</td></tr>
+              <tr><td>无编辑权限</td><td>403</td><td><code>FORBIDDEN</code></td><td>打开只读详情，不允许保存</td><td>你没有编辑该用例的权限</td></tr>
+              <tr><td>用例被锁定</td><td>409</td><td><code>CASE_LOCKED</code></td><td>进入只读态，返回锁定人信息</td><td>该用例正在被编辑或执行，暂不能修改</td></tr>
+              <tr><td>版本冲突</td><td>409</td><td><code>VERSION_CONFLICT</code></td><td>阻止覆盖，返回服务端最新版本号</td><td>用例版本冲突，请刷新后重试</td></tr>
+              <tr><td>字段无法定位</td><td>200</td><td>-</td><td>正常返回用例数据，前端降级为默认定位</td><td>（不报错，前端处理）</td></tr>
+              <tr><td>保存失败</td><td>500</td><td><code>SAVE_FAILED</code></td><td>事务回滚，保留编辑内容</td><td>保存失败，请检查网络后重试</td></tr>
+              <tr><td>忽略建议失败</td><td>500</td><td><code>STATUS_UPDATE_FAILED</code></td><td>不切换状态，允许重试</td><td>忽略失败，请稍后重试</td></tr>
+              <tr><td>重新评审失败</td><td>400</td><td><code>REVIEW_FAILED</code></td><td>保留 modified_pending_review 状态</td><td>重新评审未启动：{具体原因}</td></tr>
+              <tr><td>报告已过期</td><td>200</td><td>-</td><td>正常返回数据，附加 <code>isExpired: true</code></td><td>（不报错，前端提示）</td></tr>
+              <tr><td>建议状态非法变更</td><td>400</td><td><code>INVALID_STATUS_TRANSITION</code></td><td>拒绝状态变更</td><td>建议当前状态不允许此操作</td></tr>
+              <tr><td>DeepSeek API 超时</td><td>504</td><td><code>AI_TIMEOUT</code></td><td>不创建评审任务</td><td>AI 服务响应超时，请稍后重试</td></tr>
+              <tr><td>DeepSeek API 余额不足</td><td>400</td><td><code>AI_QUOTA_EXCEEDED</code></td><td>不创建评审任务</td><td>AI 服务余额不足，请联系管理员</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s6-2">错误响应规范</h3>
+        <p>错误响应在现有 FastAPI 默认格式 <code>{"detail": "..."}</code> 基础上增加 <code>errorCode</code> 字段，供前端区分处理。现有接口的 <code>detail</code> 字段保持不变，新增字段为可选扩展。</p>
+
+        <h4>标准错误响应结构</h4>
+        <pre><code>// 4xx/5xx 错误响应
+{
+  "detail": "人类可读的错误描述",
+  "errorCode": "ERROR_CODE"  // 可选，机器可读的错误码
+}</code></pre>
+
+        <h4>版本冲突的特殊响应</h4>
+        <pre><code>// 409 VERSION_CONFLICT
+{
+  "detail": "用例版本冲突，请刷新后重试",
+  "errorCode": "VERSION_CONFLICT",
+  "serverVersion": 2,
+  "serverUpdatedAt": "2026-07-14T09:00:00Z"
+}</code></pre>
+
+        <h4>路由层异常处理模板</h4>
+        <pre><code>@router.patch("/cases/{case_id}")
+async def update_case(
+    case_id: int,
+    body: CaseUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    case = get_test_case(db, case_id)
+    if not case:
+        raise HTTPException(
+            status_code=404,
+            detail="该用例已不存在，可能已被删除",
+            headers={"X-Error-Code": "CASE_NOT_FOUND"},
+        )
+
+    updated, error = update_case_with_suggestion(
+        db, case_id,
+        update_fields={
+            "title": body.title,
+            "precondition": body.precondition,
+            "steps": body.steps,
+            "expected": body.expected,
+            "script": body.script,
+        },
+        expected_version=body.version,
+        suggestion_uid=body.suggestion_id,
+    )
+
+    if error == "CASE_NOT_FOUND":
+        raise HTTPException(status_code=404, detail="该用例已不存在")
+    if error == "VERSION_CONFLICT":
+        raise HTTPException(
+            status_code=409,
+            detail="用例版本冲突，请刷新后重试",
+            headers={"X-Error-Code": "VERSION_CONFLICT",
+                     "X-Server-Version": str(case.version)},
+        )
+    if error:
+        raise HTTPException(status_code=500, detail=f"保存失败: {error}")
+
+    return {
+        "id": updated.id,
+        "version": updated.version,
+        "reviewStatus": updated.review_status,
+        "suggestionStatus": "resolved" if body.suggestion_id else None,
+        "message": "已保存，建议状态已更新",
+        "canRecheck": True,
+    }</code></pre>
+      </section>
+
+      <!-- ==================== 7. 权限与安全 ==================== -->
+      <section id="s7">
+        <h2>七、权限与安全</h2>
+
+        <h3 id="s7-1">操作权限矩阵</h3>
+        <p>当前系统为单用户系统，暂无 RBAC 框架。但 PRD 明确要求区分"查看用例""编辑用例""重新评审"三类操作权限，因此预留权限校验接口，本期实现为简单的配置开关。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>操作</th><th>所需权限</th><th>本期实现</th><th>校验位置</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>查看建议列表</td><td>view_case</td><td>默认允许</td><td>路由层</td></tr>
+              <tr><td>查看用例详情</td><td>view_case</td><td>默认允许</td><td>路由层</td></tr>
+              <tr><td>保存用例修改</td><td>edit_case</td><td>默认允许</td><td>路由层</td></tr>
+              <tr><td>忽略建议</td><td>edit_case</td><td>默认允许</td><td>路由层</td></tr>
+              <tr><td>重新评审</td><td>review_case</td><td>默认允许</td><td>路由层</td></tr>
+              <tr><td>删除用例</td><td>delete_case</td><td>默认允许</td><td>现有实现</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>权限校验预留方案</h4>
+        <pre><code># app/auth.py（本期预留，不实际启用）
+
+from fastapi import Depends, HTTPException
+
+def require_permission(permission: str):
+    """权限校验依赖工厂"""
+    def checker():
+        # 本期：单用户系统，默认放行
+        # 后续：从请求头解析 JWT，校验用户权限
+        return True
+    return checker
+
+# 路由中使用：
+# @router.patch("/cases/{case_id}")
+# async def update_case(
+#     ...,
+#     _: bool = Depends(require_permission("edit_case")),
+# ):</code></pre>
+
+        <h3 id="s7-2">审计日志</h3>
+        <p>建议状态变更需要记录操作人、时间和原因。本期通过 <code>review_suggestions</code> 表的 <code>handled_by</code>、<code>handled_at</code>、<code>ignore_reason</code> 字段实现轻量审计，不引入独立审计表。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>操作</th><th>记录字段</th><th>记录内容</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>忽略建议</td><td>handled_by, handled_at, ignore_reason, status</td><td>操作人、时间、忽略原因、状态→ignored</td></tr>
+              <tr><td>恢复建议</td><td>handled_by, handled_at, status</td><td>操作人、时间、状态→pending</td></tr>
+              <tr><td>保存用例修改</td><td>handled_by, handled_at, status</td><td>操作人、时间、状态→resolved</td></tr>
+              <tr><td>用例字段修改</td><td>test_cases.updated_at, version</td><td>更新时间、版本号自增</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <p><strong>安全考量：</strong>用户输入的 <code>ignore_reason</code> 需做长度限制（Pydantic <code>max_length=500</code>）和基本 XSS 过滤（FastAPI 默认不转义，前端渲染时需注意）。建议内容由 AI 生成，不直接执行，不存在注入风险。<code>sample_patch</code> 字段仅作参考展示，不自动写入用例。</p>
+        </div>
+      </section>
+
+      <!-- ==================== 8. 测试策略 ==================== -->
+      <section id="s8">
+        <h2>八、测试策略</h2>
+
+        <h3 id="s8-1">单元测试</h3>
+        <p>针对 CRUD 层和服务层的核心函数编写单元测试，使用 <code>pytest</code> + 内存 SQLite 数据库。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>测试模块</th><th>测试用例</th><th>验证点</th></tr>
+            </thead>
+            <tbody>
+              <tr><td rowspan="3">CRUD: 建议操作</td><td>test_create_review_suggestion</td><td>建议创建成功，字段完整，UID 格式正确</td></tr>
+              <tr><td>test_get_suggestions_by_review</td><td>按 review_report_id 查询返回正确列表</td></tr>
+              <tr><td>test_update_suggestion_status</td><td>状态流转合法，非法流转被拒绝</td></tr>
+              <tr><td rowspan="4">CRUD: 用例保存事务</td><td>test_update_case_normal</td><td>正常保存，version 自增，review_status 更新</td></tr>
+              <tr><td>test_update_case_version_conflict</td><td>version 不匹配时返回 VERSION_CONFLICT</td></tr>
+              <tr><td>test_update_case_with_suggestion</td><td>携带 suggestionId 时建议状态变为 resolved</td></tr>
+              <tr><td>test_update_case_transaction_rollback</td><td>事务中异常时全部回滚</td></tr>
+              <tr><td rowspan="2">Service: 评审</td><td>test_review_cases_structured_output</td><td>AI 返回结构化建议，case_index 正确映射到 case_id</td></tr>
+              <tr><td>test_review_single_case</td><td>单条用例评审，通过时 review_status 更新为 review_passed</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s8-2">集成测试</h3>
+        <p>通过 FastAPI 的 <code>TestClient</code> 对 API 端点进行端到端测试，覆盖 PRD 异常场景。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>测试场景</th><th>请求</th><th>预期响应</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>正常定向跳转</td><td>GET /api/cases/42?suggestionId=S-5-001</td><td>200，返回用例详情 + 建议列表</td></tr>
+              <tr><td>用例不存在</td><td>GET /api/cases/9999</td><td>404，detail="该用例已不存在"</td></tr>
+              <tr><td>正常保存修改</td><td>PATCH /api/cases/42, version=1</td><td>200，version=2，reviewStatus=modified_pending_review</td></tr>
+              <tr><td>版本冲突</td><td>PATCH /api/cases/42, version=1（已被他人改为2）</td><td>409，errorCode=VERSION_CONFLICT</td></tr>
+              <tr><td>忽略建议</td><td>PATCH /api/review-suggestions/S-5-001/status, status=ignored</td><td>200，status=ignored</td></tr>
+              <tr><td>非法状态变更</td><td>PATCH /api/review-suggestions/S-5-001/status, status=resolved</td><td>400，detail="不允许此状态变更"</td></tr>
+              <tr><td>重新评审通过</td><td>POST /api/cases/42/review</td><td>200，reviewResult.passed=true</td></tr>
+              <tr><td>重新评审失败</td><td>POST /api/cases/42/review（无 API Key）</td><td>400，errorCode=REVIEW_FAILED</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s8-3">验收映射</h3>
+        <p>将 PRD 第九章验收标准映射到后端可验证的测试点。</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>验收编号</th><th>PRD 验收项</th><th>后端测试点</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>AC-01</td><td>建议卡片展示</td><td>GET /api/reviews/{id}/suggestions 返回结构化建议，包含 caseId/fieldPath/issueType/severity</td></tr>
+              <tr><td>AC-02</td><td>定向跳转</td><td>GET /api/cases/{caseId}?suggestionId=xxx 返回用例详情和关联建议</td></tr>
+              <tr><td>AC-03</td><td>用例定位</td><td>GET /api/cases/{caseId} 返回用例完整信息，前端据此定位</td></tr>
+              <tr><td>AC-04</td><td>字段高亮</td><td>建议的 fieldPath 字段正确返回，前端据此高亮</td></tr>
+              <tr><td>AC-05</td><td>保存状态</td><td>PATCH /api/cases/{caseId} 保存后返回 suggestionStatus=resolved, reviewStatus=modified_pending_review</td></tr>
+              <tr><td>AC-06</td><td>忽略建议</td><td>PATCH /api/review-suggestions/{id}/status 返回 status=ignored，用例内容不变</td></tr>
+              <tr><td>AC-07</td><td>异常处理</td><td>404/403/409/500 各场景返回正确状态码和提示</td></tr>
+              <tr><td>AC-08</td><td>复审入口</td><td>POST /api/cases/{caseId}/review 返回评审结果</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== 9. 实施计划 ==================== -->
+      <section id="s9">
+        <h2>九、实施计划</h2>
+
+        <h3 id="s9-1">开发任务分解</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>阶段</th><th>任务</th><th>涉及文件</th><th>预估工时</th></tr>
+            </thead>
+            <tbody>
+              <tr><td rowspan="2">阶段一：数据库</td><td>新增 ReviewSuggestion ORM 模型</td><td><code>db_models.py</code></td><td>0.5 天</td></tr>
+              <tr><td>修改 TestCase / ReviewReport 模型，编写迁移脚本</td><td><code>db_models.py</code>, <code>migration.py</code>, <code>main.py</code></td><td>0.5 天</td></tr>
+              <tr><td rowspan="3">阶段二：数据访问层</td><td>新增建议 CRUD 函数</td><td><code>crud.py</code></td><td>0.5 天</td></tr>
+              <tr><td>新增用例保存事务函数（含乐观锁）</td><td><code>crud.py</code></td><td>1 天</td></tr>
+              <tr><td>新增用例评审状态更新函数</td><td><code>crud.py</code></td><td>0.5 天</td></tr>
+              <tr><td rowspan="3">阶段三：Pydantic 模型</td><td>扩展 ReviewSuggestion 模型</td><td><code>models.py</code></td><td>0.5 天</td></tr>
+              <tr><td>新增 CaseUpdateRequest / SuggestionStatusUpdate 模型</td><td><code>models.py</code></td><td>0.5 天</td></tr>
+              <tr><td>新增 ReviewSingleCaseRequest 模型</td><td><code>models.py</code></td><td>0.25 天</td></tr>
+              <tr><td rowspan="3">阶段四：服务层</td><td>改造 REVIEW_PROMPT，输出结构化建议</td><td><code>prompts.py</code></td><td>0.5 天</td></tr>
+              <tr><td>改造 review_cases() 方法，支持 case_id 映射</td><td><code>services.py</code></td><td>1 天</td></tr>
+              <tr><td>新增 review_single_case() 方法</td><td><code>services.py</code></td><td>0.5 天</td></tr>
+              <tr><td rowspan="2">阶段五：路由层</td><td>实现 6 个新 API 接口</td><td><code>routes.py</code></td><td>1.5 天</td></tr>
+              <tr><td>改造 generate_project_review 接口（持久化结构化建议）</td><td><code>routes.py</code></td><td>0.5 天</td></tr>
+              <tr><td rowspan="2">阶段六：测试</td><td>编写单元测试和集成测试</td><td><code>test_review_suggestion_api.py</code></td><td>1 天</td></tr>
+              <tr><td>端到端验收测试（覆盖 8 个 AC）</td><td>-</td><td>0.5 天</td></tr>
+              <tr><td colspan="3"><strong>合计</strong></td><td><strong>约 9.75 天</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="s9-2">风险与对策</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>风险</th><th>影响</th><th>概率</th><th>对策</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>AI 输出的 case_index 与实际用例不匹配</td><td>建议关联到错误用例</td><td>中</td><td>后端校验 case_index 范围，越界时跳过该建议并记录日志</td></tr>
+              <tr><td>AI 输出的 field_path 不在合法枚举内</td><td>前端无法高亮字段</td><td>低</td><td>后端过滤非法值，仅保留合法字段名</td></tr>
+              <tr><td>SQLite 并发写入锁冲突</td><td>保存操作偶发失败</td><td>低</td><td>设置重试机制（3次，间隔 200ms），仍失败返回 503</td></tr>
+              <tr><td>现有 review_reports.suggestions JSON 格式变更</td><td>前端旧版本解析失败</td><td>中</td><td>保持 JSON 字段向前兼容，新增字段为可选</td></tr>
+              <tr><td>DeepSeek API 超时（单用例评审）</td><td>重新评审无响应</td><td>中</td><td>设置 60s 超时，超时后返回 504 并提示用户重试</td></tr>
+              <tr><td>迁移脚本在已有数据的环境执行失败</td><td>启动报错</td><td>低</td><td>迁移脚本使用 try/except 幂等设计，失败时记录日志但不阻断启动</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout success">
+          <p><strong>实施建议：</strong>阶段一至阶段三可并行开发，阶段四依赖阶段二和阶段三的完成，阶段五依赖阶段四。建议先完成"保存用例修改 + 建议状态回写"这条核心链路（阶段一、二、五的部分），再补齐"重新评审"和"建议查询"功能。</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="sources">
+        <h2>资料来源</h2>
+        <ol>
+          <li id="cite-1">
+            <span class="src-title">产品需求文档，《AI评审建议跳转用例库人工修改 - PRD》v1.0。本文档基于其中的数据结构、接口设计、状态流转和异常场景定义后端技术方案。</span>
+            <span class="src-url">用户上传文档 (E:\hkx_project\TestPilot\prd\ai-review-case-edit-prd.html)</span>
+          </li>
+          <li id="cite-2">
+            <span class="src-title">TestPilot 后端源代码。本文档引用了 db_models.py、models.py、routes.py、crud.py、services.py、prompts.py 中的现有实现作为设计基础。</span>
+            <span class="src-url">项目源代码 (E:\hkx_project\TestPilot\testpilot-backend\app\)</span>
+          </li>
+        </ol>
+      </div>
+    </footer>
+  </article>
+
+  <script src="./后端开发技术设计文档 - AI评审建议跳转用例库人工修改_files/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+  </script>
+
+
+<div class="mermaidTooltip" style="opacity: 0;"></div></body></html>

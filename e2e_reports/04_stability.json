@@ -1,0 +1,207 @@
+{
+  "projectId": 20,
+  "caseCount": 5,
+  "totalIssues": 3,
+  "scores": {
+    "selector_stability": 70,
+    "login_state": 100,
+    "wait_strategy": 52,
+    "dynamic_data": 100,
+    "exception_handling": 80
+  },
+  "overallScore": 80,
+  "checks": {
+    "selector_stability": {
+      "label": "选择器稳定性",
+      "risk_count": 0,
+      "fixed_count": 0,
+      "suggestion": "建议优化选择器",
+      "tag": "warning"
+    },
+    "login_state": {
+      "label": "登录态注入",
+      "risk_count": 0,
+      "fixed_count": 0,
+      "suggestion": "无需登录",
+      "tag": "success"
+    },
+    "wait_strategy": {
+      "label": "等待机制",
+      "risk_count": 3,
+      "fixed_count": 0,
+      "suggestion": "已替换为auto-wait",
+      "tag": "warning"
+    },
+    "dynamic_data": {
+      "label": "动态数据",
+      "risk_count": 0,
+      "fixed_count": 0,
+      "suggestion": "无需配置",
+      "tag": "success"
+    }
+  },
+  "cases": [
+    {
+      "id": 66,
+      "title": "用户登录（手机号+密码+图形验证码） - 基础功能验证",
+      "module": "用户登录（手机号+密码+图形验证码）",
+      "overall_score": 76,
+      "scores": {
+        "selector_stability": 70,
+        "login_state": 100,
+        "wait_strategy": 52,
+        "dynamic_data": 100,
+        "exception_handling": 80
+      },
+      "checks": {
+        "selector_stability": {
+          "passed": false,
+          "risk_count": 0,
+          "fixed_count": 0,
+          "suggestion": "建议优化选择器"
+        },
+        "login_state": {
+          "passed": true,
+          "needs_login": false,
+          "has_storage_state": false,
+          "suggestion": "无需登录"
+        },
+        "wait_strategy": {
+          "passed": false,
+          "bad_wait_count": 1,
+          "web_first_count": 0,
+          "suggestion": "建议使用Web-First断言"
+        },
+        "dynamic_data": {
+          "passed": true,
+          "has_hardcoded": false,
+          "has_faker": false,
+          "suggestion": "无需配置"
+        },
+        "exception_handling": {
+          "passed": true,
+          "risky_count": 1,
+          "try_catch_count": 0,
+          "suggestion": "建议添加异常处理"
+        }
+      },
+      "issues": [
+        {
+          "type": "wait_strategy",
+          "level": "warning",
+          "message": "发现硬编码waitForTimeout: waitForTimeout(2000)",
+          "suggestion": "应替换为Web-First断言如toBeVisible/toHaveText等",
+          "auto_fix": true
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "title": "浏览首页商品列表 - 基础功能验证",
+      "module": "浏览首页商品列表",
+      "overall_score": 76,
+      "scores": {
+        "selector_stability": 70,
+        "login_state": 100,
+        "wait_strategy": 52,
+        "dynamic_data": 100,
+        "exception_handling": 80
+      },
+      "checks": {
+        "selector_stability": {
+          "passed": false,
+          "risk_count": 0,
+          "fixed_count": 0,
+          "suggestion": "建议优化选择器"
+        },
+        "login_state": {
+          "passed": true,
+          "needs_login": false,
+          "has_storage_state": false,
+          "suggestion": "无需登录"
+        },
+        "wait_strategy": {
+          "passed": false,
+          "bad_wait_count": 1,
+          "web_first_count": 0,
+          "suggestion": "建议使用Web-First断言"
+        },
+        "dynamic_data": {
+          "passed": true,
+          "has_hardcoded": false,
+          "has_faker": false,
+          "suggestion": "无需配置"
+        },
+        "exception_handling": {
+          "passed": true,
+          "risky_count": 1,
+          "try_catch_count": 0,
+          "suggestion": "建议添加异常处理"
+        }
+      },
+      "issues": [
+        {
+          "type": "wait_strategy",
+          "level": "warning",
+          "message": "发现硬编码waitForTimeout: waitForTimeout(2000)",
+          "suggestion": "应替换为Web-First断言如toBeVisible/toHaveText等",
+          "auto_fix": true
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "title": "查看商品详情 - 基础功能验证",
+      "module": "查看商品详情",
+      "overall_score": 76,
+      "scores": {
+        "selector_stability": 70,
+        "login_state": 100,
+        "wait_strategy": 52,
+        "dynamic_data": 100,
+        "exception_handling": 80
+      },
+      "checks": {
+        "selector_stability": {
+          "passed": false,
+          "risk_count": 0,
+          "fixed_count": 0,
+          "suggestion": "建议优化选择器"
+        },
+        "login_state": {
+          "passed": true,
+          "needs_login": false,
+          "has_storage_state": false,
+          "suggestion": "无需登录"
+        },
+        "wait_strategy": {
+          "passed": false,
+          "bad_wait_count": 1,
+          "web_first_count": 0,
+          "suggestion": "建议使用Web-First断言"
+        },
+        "dynamic_data": {
+          "passed": true,
+          "has_hardcoded": false,
+          "has_faker": false,
+          "suggestion": "无需配置"
+        },
+        "exception_handling": {
+          "passed": true,
+          "risky_count": 1,
+          "try_catch_count": 0,
+          "suggestion": "建议添加异常处理"
+        }
+      },
+      "issues": [
+        {
+          "type": "wait_strategy",
+          "level": "warning",
+          "message": "发现硬编码waitForTimeout: waitForTimeout(2000)",
+          "suggestion": "应替换为Web-First断言如toBeVisible/toHaveText等",
+          "auto_fix": true
+        }
+      ]
+    }
+  ]
+}

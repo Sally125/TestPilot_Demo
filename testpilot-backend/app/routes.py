@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .models import (
     AnalyzeRequest,
     AnalyzeResponse,
+    DesignTestCasesRequest,
+    DesignTestCasesResponse,
     FeaturePoint,
     GenerateRequest,
     GenerateResponse,
@@ -32,10 +35,17 @@ from .models import (
     ExecutionUpdate,
     TestReportCreate,
     SettingSaveRequest,
+    LoginProfileCreate,
+    LoginProfileUpdate,
+    SuggestionStatusUpdate,
+    CaseUpdateRequest,
 )
 from .services import AIService, ExecutionService
+from .session_generator import LoginSessionGenerator
 from .stability_checker import StabilityChecker
+from .prompts import ANALYZE_PROMPT
 from .database import get_db
+from .db_models import TestCase
 from .crud import (
     get_projects,
     get_project,
@@ -47,26 +57,44 @@ from .crud import (
     get_requirements,
     get_requirement,
     update_requirement_analysis,
+    delete_requirement,
     create_test_case,
     get_test_cases,
     update_test_case_status,
     delete_test_case,
     create_execution_record,
     get_execution_records,
+    add_execution_log,
     create_stability_report,
     get_stability_report,
     create_review_report,
     get_review_report,
+    get_review_report_by_id,
+    create_review_suggestion,
+    get_suggestions_by_review,
+    get_suggestion_by_uid,
+    get_suggestions_by_case,
+    update_suggestion_status,
+    update_test_case_review_status,
+    update_case_with_suggestion,
     create_execution,
     update_execution,
     get_execution,
     get_executions,
+    delete_execution,
     create_test_report,
     get_test_report,
     get_setting,
     set_setting,
     get_settings_by_category,
     get_all_settings,
+    get_login_profiles,
+    get_login_profile,
+    get_default_login_profile,
+    count_login_profiles,
+    create_login_profile,
+    update_login_profile,
+    delete_login_profile,
 )
 
 router = APIRouter(prefix="/api", tags=["testpilot"])
@@ -102,32 +130,37 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
 async def analyze_stream(req: AnalyzeRequest):
     from fastapi.responses import StreamingResponse
     import json
+    import asyncio
     
     ai = AIService()
-    try:
-        logger.debug(f"Analyzing requirement (stream): {req.requirement_text[:100]}...")
-        
-        prompt = req.requirement_text
-        if req.app_url:
-            prompt += f"\n\n被测应用 URL: {req.app_url}"
-        
-        prompt = ANALYZE_PROMPT.format(
-            requirement_text=req.requirement_text,
-            app_url=req.app_url or "未提供",
-        )
-        
-        async def generate():
+    
+    async def generate():
+        try:
+            logger.debug(f"Analyzing requirement (stream): {req.requirement_text[:100]}...")
+            
+            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': 'AI正在思考中...'})}\n\n"
+            await asyncio.sleep(0.01)
+            
+            prompt = ANALYZE_PROMPT.format(
+                requirement_text=req.requirement_text,
+                app_url=req.app_url or "未提供",
+            )
+            
             buffer = ""
+            chunk_count = 0
             async for chunk in ai.chat_stream(prompt):
                 buffer += chunk
+                chunk_count += 1
                 yield f"data: {json.dumps({'type': 'progress', 'content': chunk, 'buffer_length': len(buffer)})}\n\n"
+                if chunk_count % 5 == 0:
+                    await asyncio.sleep(0.001)
+            
+            text = buffer.strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*", "", text)
+                text = re.sub(r"\s*```$", "", text)
             
             try:
-                text = buffer.strip()
-                if text.startswith("```"):
-                    text = re.sub(r"^```(?:json)?\s*", "", text)
-                    text = re.sub(r"\s*```$", "", text)
-                
                 data = json.loads(text)
                 feature_points = []
                 for fp in data.get("feature_points", []):
@@ -153,30 +186,205 @@ async def analyze_stream(req: AnalyzeRequest):
                     "raw": text,
                 }
                 yield f"data: {json.dumps(result, ensure_ascii=False)}\n\n"
+                logger.debug("Analyze stream completed, yielding done event")
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
             except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error: {e}, raw: {text[:500]}")
                 yield f"data: {json.dumps({'type': 'error', 'message': f'JSON 解析失败: {str(e)}', 'raw': buffer[:500]})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
         
-        return StreamingResponse(
-            generate(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-        )
+        except RuntimeError as e:
+            logger.error(f"Runtime error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            logger.error(f"Unexpected error in analyze stream: {type(e).__name__}: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': f'需求分析失败: {type(e).__name__}: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked",
+        },
+    )
+
+
+@router.post("/design-testcases", response_model=DesignTestCasesResponse)
+async def design_testcases(req: DesignTestCasesRequest) -> DesignTestCasesResponse:
+    ai = AIService()
+    try:
+        return await ai.design_test_cases(req.feature_points)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Unexpected error in analyze stream: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"需求分析失败: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"测试用例设计失败: {e}")
+
+
+@router.post("/design-testcases/stream")
+async def design_testcases_stream(req: DesignTestCasesRequest):
+    from fastapi.responses import StreamingResponse
+    import json
+    import asyncio
+    
+    ai = AIService()
+    
+    async def generate():
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': 'AI正在设计测试用例...'})}\n\n"
+            await asyncio.sleep(0.01)
+            
+            fp_json = json.dumps(
+                [{"id": f"FP-{i+1:03d}", **fp.model_dump()} for i, fp in enumerate(req.feature_points)],
+                ensure_ascii=False, indent=2
+            )
+            from datetime import datetime
+            generation_time = datetime.now().isoformat()
+            
+            from .prompts import TESTCASE_DESIGN_PROMPT
+            prompt = TESTCASE_DESIGN_PROMPT.format(
+                feature_points_json=fp_json,
+                generation_time=generation_time,
+            )
+            
+            buffer = ""
+            async for chunk in ai.chat_stream(prompt):
+                buffer += chunk
+                yield f"data: {json.dumps({'type': 'progress', 'content': chunk, 'buffer_length': len(buffer)})}\n\n"
+            
+            text = buffer.strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*", "", text)
+                text = re.sub(r"\s*```$", "", text)
+            
+            try:
+                data = json.loads(text)
+                result = await ai.design_test_cases(req.feature_points)
+                result_dict = {
+                    "type": "complete",
+                    "testcase_summary": result.testcase_summary.model_dump(),
+                    "test_cases": [tc.model_dump() for tc in result.test_cases],
+                    "coverage_matrix": result.coverage_matrix.model_dump(),
+                    "raw": text,
+                }
+                yield f"data: {json.dumps(result_dict, ensure_ascii=False)}\n\n"
+            except json.JSONDecodeError as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'JSON解析失败: {str(e)}', 'raw': buffer[:500]})}\n\n"
+            
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'测试用例设计失败: {type(e).__name__}: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked",
+        },
+    )
 
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate(req: GenerateRequest) -> GenerateResponse:
     ai = AIService()
     try:
-        return await ai.generate_scripts(req.feature_points, req.app_url)
+        print(f"[DEBUG] /generate - test_cases count: {len(req.test_cases)}")
+        if req.test_cases:
+            print(f"[DEBUG] /generate - first test_case: {req.test_cases[0].id} - {req.test_cases[0].title[:50]}")
+        print(f"[DEBUG] /generate - app_url: {req.app_url}")
+        return await ai.generate_scripts(req.test_cases, req.app_url)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"脚本生成失败: {e}")
+
+
+@router.post("/generate/stream")
+async def generate_stream(req: GenerateRequest):
+    from fastapi.responses import StreamingResponse
+    import json
+    import asyncio
+    
+    ai = AIService()
+    
+    async def generate():
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': 'AI正在生成测试脚本...'})}\n\n"
+            await asyncio.sleep(0.01)
+            
+            tc_json = json.dumps(
+                [tc.model_dump() for tc in req.test_cases], ensure_ascii=False, indent=2
+            )
+            
+            s = ai.settings
+            test_account = "未提供"
+            if s.test_username:
+                test_account = f"用户名: {s.test_username} / 密码: {s.test_password or '***'}"
+            
+            app_name = "应用系统"
+            if req.test_cases:
+                modules = set()
+                for tc in req.test_cases:
+                    if tc.module:
+                        modules.add(tc.module)
+                if modules:
+                    app_name = ", ".join(list(modules)[:3])
+            
+            from .prompts import GENERATE_PROMPT
+            prompt = GENERATE_PROMPT.format(
+                test_cases_json=tc_json,
+                app_name=app_name,
+                app_url=req.app_url or "未提供",
+                login_url=s.login_url or "未提供",
+                test_account=test_account,
+                test_username=s.test_username or "",
+                test_password=s.test_password or "",
+            )
+            
+            buffer = ""
+            async for chunk in ai.chat_stream(prompt):
+                buffer += chunk
+                yield f"data: {json.dumps({'type': 'progress', 'content': chunk, 'buffer_length': len(buffer)})}\n\n"
+            
+            text = buffer.strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*", "", text)
+                text = re.sub(r"\s*```$", "", text)
+            
+            try:
+                result = await ai.generate_scripts(req.test_cases, req.app_url)
+                result_dict = {
+                    "type": "complete",
+                    "cases": [c.model_dump() for c in result.cases],
+                    "raw": text,
+                }
+                yield f"data: {json.dumps(result_dict, ensure_ascii=False)}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'message': f'脚本生成失败: {type(e).__name__}: {str(e)}'})}\n\n"
+            
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'脚本生成失败: {type(e).__name__}: {str(e)}'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked",
+        },
+    )
 
 
 @router.post("/run", response_model=RunResponse)
@@ -270,27 +478,27 @@ async def get_project_detail(project_id: int, db: Session = Depends(get_db)):
 @router.put("/projects/{project_id}")
 async def update_project_detail(
     project_id: int,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    appUrl: Optional[str] = None,
-    dim: Optional[str] = None,
-    techStack: Optional[str] = None,
+    name: Optional[str] = Body(default=None),
+    description: Optional[str] = Body(default=None),
+    appUrl: Optional[str] = Body(default=None),
+    dim: Optional[str] = Body(default=None),
+    techStack: Optional[str] = Body(default=None),
     db: Session = Depends(get_db)
 ):
     project = get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
-    
+
     update_data = {}
-    if name:
+    if name is not None:
         update_data["name"] = name
-    if description:
+    if description is not None:
         update_data["description"] = description
-    if appUrl:
+    if appUrl is not None:
         update_data["app_url"] = appUrl
-    if dim:
+    if dim is not None:
         update_data["dim"] = dim
-    if techStack:
+    if techStack is not None:
         update_data["tech_stack"] = techStack
     
     updated = update_project(db, project_id, **update_data)
@@ -388,6 +596,14 @@ async def save_analysis(
     }
 
 
+@router.delete("/requirements/{req_id}")
+async def remove_requirement(req_id: int, db: Session = Depends(get_db)):
+    success = delete_requirement(db, req_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="需求不存在")
+    return {"success": True, "message": "需求已删除"}
+
+
 # ==================== 测试用例管理 ====================
 
 @router.get("/projects/{project_id}/testcases")
@@ -427,7 +643,9 @@ async def list_test_cases(
                 "status": c.status,
                 "createdAt": c.created_at,
                 "updatedAt": c.updated_at,
-                "stabilityScore": getattr(c, 'stability_score', 0) or 0
+                "stabilityScore": getattr(c, 'stability_score', 0) or 0,
+                "loginMode": getattr(c, 'login_mode', 'global') or 'global',
+                "loginRole": getattr(c, 'login_role', None)
             }
             for c in cases
         ],
@@ -450,13 +668,16 @@ async def add_test_case(
 
     case = create_test_case(
         db, project_id, body.title, body.module, body.priority, body.precondition,
-        body.steps, body.expected, body.script, body.scriptPath, body.requirementId
+        body.steps, body.expected, body.script, body.scriptPath, body.requirementId,
+        body.loginMode, body.loginRole
     )
     return {
         "id": case.id,
         "title": case.title,
         "status": case.status,
-        "createdAt": case.created_at
+        "createdAt": case.created_at,
+        "loginMode": case.login_mode,
+        "loginRole": case.login_role
     }
 
 
@@ -470,6 +691,28 @@ async def set_case_status(
     if not updated:
         raise HTTPException(status_code=404, detail="用例不存在")
     return {"id": updated.id, "status": updated.status}
+
+
+@router.put("/testcases/{case_id}/login")
+async def update_case_login(
+    case_id: int,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    """更新用例的登录态绑定"""
+    login_mode = body.get("loginMode")
+    login_role = body.get("loginRole")
+    if login_mode not in ("global", "specified", "anonymous"):
+        raise HTTPException(status_code=400, detail="loginMode 必须是 global/specified/anonymous")
+    from .crud import update_test_case_login
+    updated = update_test_case_login(db, case_id, login_mode, login_role)
+    if not updated:
+        raise HTTPException(status_code=404, detail="用例不存在")
+    return {
+        "id": updated.id,
+        "loginMode": updated.login_mode,
+        "loginRole": updated.login_role
+    }
 
 
 # ==================== 执行记录 ====================
@@ -553,14 +796,14 @@ async def save_stability_report(
 
 
 @router.post("/stability/check")
-async def check_stability(script: str):
+async def check_stability(script: str = Body(..., embed=True)):
     checker = StabilityChecker()
     result = checker.analyze(script)
     return result
 
 
 @router.post("/stability/fix")
-async def fix_stability(script: str):
+async def fix_stability(script: str = Body(..., embed=True)):
     checker = StabilityChecker()
     fixed_script, fixes = checker.auto_fix(script)
     return {
@@ -611,7 +854,7 @@ async def check_project_stability(project_id: int, db: Session = Depends(get_db)
             "risk_count": sum(1 for r in case_results for i in r["issues"] if i["type"] == "selector_stability"),
             "fixed_count": sum(r["checks"].get("selector_stability", {}).get("fixed_count", 0) for r in case_results),
             "suggestion": "已自动优化" if any(r["checks"].get("selector_stability", {}).get("fixed_count", 0) > 0 for r in case_results) else "建议优化选择器",
-            "tag": "success" if all(r["checks"].get("selector_stability", {}).get("passed", False) for r in case_results) else "warning" if case_results else "info",
+            "tag": "success" if not case_results else ("success" if all(r["checks"].get("selector_stability", {}).get("passed", False) and r["checks"].get("selector_stability", {}).get("risk_count", 0) == r["checks"].get("selector_stability", {}).get("fixed_count", 0) for r in case_results) else "warning"),
         },
         "login_state": {
             "label": "登录态注入",
@@ -655,7 +898,7 @@ async def check_project_stability(project_id: int, db: Session = Depends(get_db)
 async def get_project_review(project_id: int, db: Session = Depends(get_db)):
     report = get_review_report(db, project_id)
     if not report:
-        return {"score": 0, "metrics": [], "suggestions": []}
+        return {"score": 0, "metrics": [], "suggestions": [], "isExpired": False}
     return {
         "id": report.id,
         "projectId": report.project_id,
@@ -664,6 +907,7 @@ async def get_project_review(project_id: int, db: Session = Depends(get_db)):
         "suggestions": report.suggestions,
         "reqSource": report.req_source,
         "model": report.model,
+        "isExpired": bool(report.is_expired) if hasattr(report, "is_expired") else False,
         "reviewedAt": report.reviewed_at
     }
 
@@ -690,7 +934,9 @@ async def generate_project_review(project_id: int, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="项目没有需求分析结果，请先进行需求分析")
 
     ai_cases = []
+    case_id_list = []
     for case in cases:
+        case_id_list.append(case.id)
         ai_cases.append(GeneratedCase(
             title=case.title,
             module=case.module or "",
@@ -713,7 +959,7 @@ async def generate_project_review(project_id: int, db: Session = Depends(get_db)
         ))
 
     ai = AIService()
-    result = await ai.review_cases(ai_cases, ai_feature_points)
+    result = await ai.review_cases(ai_cases, ai_feature_points, case_ids=case_id_list)
 
     metrics = [
         {"label": "需求覆盖度", "value": f"{result.coverage_score}%", "tag": "success" if result.coverage_score >= 80 else "warning" if result.coverage_score >= 60 else "danger"},
@@ -722,7 +968,6 @@ async def generate_project_review(project_id: int, db: Session = Depends(get_db)
     ]
 
     suggestions = []
-    tag_map = {"danger": 0, "warning": 1, "success": 2}
     for idx, s in enumerate(result.suggestions):
         tag = "warning"
         if idx == 0 and result.overall_score < 70:
@@ -733,12 +978,40 @@ async def generate_project_review(project_id: int, db: Session = Depends(get_db)
             "tag": tag,
             "label": f"建议#{idx + 1}",
             "title": s.case_title,
-            "problem": s.issue,
+            "problem": s.problem or s.issue,
             "suggestion": s.suggestion,
             "code": s.example,
+            "suggestionUid": None,  # 创建后回填
+            "caseId": s.case_id,
+            "fieldPath": s.field_path,
+            "issueType": s.issue_type,
+            "severity": s.severity,
         })
 
-    create_review_report(db, project_id, result.overall_score, metrics, suggestions, req_source, "DeepSeek-V4")
+    report = create_review_report(db, project_id, result.overall_score, metrics, suggestions, req_source, "DeepSeek-V4")
+
+    # 持久化结构化建议到 review_suggestions 表
+    for idx, s in enumerate(result.suggestions):
+        if s.case_id is None:
+            continue
+        suggestion_uid = f"S-{report.id}-{str(idx + 1).zfill(3)}"
+        create_review_suggestion(
+            db,
+            suggestion_uid=suggestion_uid,
+            review_report_id=report.id,
+            project_id=project_id,
+            case_id=s.case_id,
+            field_path=s.field_path,
+            issue_type=s.issue_type,
+            severity=s.severity,
+            problem=s.problem or s.issue,
+            suggestion=s.suggestion,
+            sample_patch=s.sample_patch,
+        )
+        suggestions[idx]["suggestionUid"] = suggestion_uid
+
+        # 更新用例评审状态
+        update_test_case_review_status(db, s.case_id, "needs_modification")
 
     return {
         "score": result.overall_score,
@@ -771,6 +1044,350 @@ async def save_review_report(
         "id": report.id,
         "score": report.score,
         "reviewedAt": report.reviewed_at
+    }
+
+
+# ==================== 评审建议定向修改 ====================
+
+# issue_type 中文标签映射
+_ISSUE_TYPE_LABELS = {
+    "coverage_gap": "覆盖缺失",
+    "boundary_missing": "边界缺失",
+    "assertion_weak": "断言薄弱",
+    "script_risk": "脚本风险",
+    "duplicate_case": "用例重复",
+}
+
+
+@router.get("/reviews/{review_id}/suggestions")
+async def list_review_suggestions(
+    review_id: int,
+    status: Optional[str] = None,
+    caseId: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """获取评审报告下的建议列表"""
+    report = get_review_report_by_id(db, review_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="评审报告不存在")
+
+    items = get_suggestions_by_review(db, review_id, status=status, case_id=caseId)
+
+    suggestions = []
+    for item in items:
+        case = db.query(TestCase).filter(TestCase.id == item.case_id).first()
+        suggestions.append({
+            "id": item.suggestion_uid,
+            "reviewId": item.review_report_id,
+            "caseId": item.case_id,
+            "caseTitle": case.title if case else "",
+            "fieldPath": item.field_path,
+            "issueType": item.issue_type,
+            "issueTypeLabel": _ISSUE_TYPE_LABELS.get(item.issue_type, item.issue_type),
+            "severity": item.severity,
+            "problem": item.problem,
+            "suggestion": item.suggestion,
+            "samplePatch": item.sample_patch,
+            "status": item.status,
+            "handledBy": item.handled_by,
+            "handledAt": item.handled_at,
+            "createdAt": item.created_at,
+        })
+
+    return {
+        "reviewId": review_id,
+        "projectId": report.project_id,
+        "score": report.score,
+        "isExpired": bool(report.is_expired) if hasattr(report, "is_expired") else False,
+        "suggestions": suggestions,
+    }
+
+
+@router.get("/review-suggestions/{suggestion_uid}")
+async def get_suggestion_detail(suggestion_uid: str, db: Session = Depends(get_db)):
+    """获取单条建议详情"""
+    item = get_suggestion_by_uid(db, suggestion_uid)
+    if not item:
+        raise HTTPException(status_code=404, detail="建议不存在")
+
+    case = db.query(TestCase).filter(TestCase.id == item.case_id).first()
+
+    return {
+        "id": item.suggestion_uid,
+        "reviewId": item.review_report_id,
+        "caseId": item.case_id,
+        "caseTitle": case.title if case else "",
+        "caseModule": case.module if case else "",
+        "fieldPath": item.field_path,
+        "issueType": item.issue_type,
+        "issueTypeLabel": _ISSUE_TYPE_LABELS.get(item.issue_type, item.issue_type),
+        "severity": item.severity,
+        "problem": item.problem,
+        "suggestion": item.suggestion,
+        "samplePatch": item.sample_patch,
+        "status": item.status,
+        "handledBy": item.handled_by,
+        "handledAt": item.handled_at,
+        "ignoreReason": item.ignore_reason,
+        "caseInfo": {
+            "id": case.id,
+            "title": case.title,
+            "module": case.module,
+            "priority": case.priority,
+            "status": case.status,
+            "reviewStatus": case.review_status if hasattr(case, "review_status") else None,
+            "version": case.version if hasattr(case, "version") else 1,
+        } if case else None,
+    }
+
+
+@router.patch("/review-suggestions/{suggestion_uid}/status")
+async def update_suggestion_status_api(
+    suggestion_uid: str,
+    body: SuggestionStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    """更新建议状态（忽略/恢复）"""
+    item = get_suggestion_by_uid(db, suggestion_uid)
+    if not item:
+        raise HTTPException(status_code=404, detail="建议不存在")
+
+    # 状态流转校验
+    current = item.status
+    if current == "resolved":
+        raise HTTPException(status_code=400, detail="已处理的建议不允许变更状态")
+    if body.status == "ignored" and current not in ("pending", "editing"):
+        raise HTTPException(status_code=400, detail="当前状态不允许忽略操作")
+    if body.status == "pending" and current != "ignored":
+        raise HTTPException(status_code=400, detail="仅已忽略的建议可以恢复处理")
+
+    if body.status == "ignored" and not body.ignore_reason:
+        raise HTTPException(status_code=400, detail="忽略建议时需填写忽略原因")
+
+    updated = update_suggestion_status(
+        db,
+        suggestion_uid,
+        body.status,
+        handled_by="user",
+        ignore_reason=body.ignore_reason,
+    )
+
+    return {
+        "id": updated.suggestion_uid,
+        "status": updated.status,
+        "handledBy": updated.handled_by,
+        "handledAt": updated.handled_at,
+        "ignoreReason": updated.ignore_reason,
+    }
+
+
+@router.get("/cases/{case_id}")
+async def get_case_for_edit(
+    case_id: int,
+    suggestionId: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """用例定向查询（含版本号、关联建议）"""
+    case = db.query(TestCase).filter(TestCase.id == case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="该用例已不存在，可能已被删除")
+
+    # 查询关联建议
+    suggestions = []
+    if suggestionId:
+        all_suggestions = get_suggestions_by_case(db, case_id)
+        for s in all_suggestions:
+            suggestions.append({
+                "id": s.suggestion_uid,
+                "fieldPath": s.field_path,
+                "problem": s.problem,
+                "suggestion": s.suggestion,
+                "status": s.status,
+                "severity": s.severity,
+                "isCurrent": s.suggestion_uid == suggestionId,
+            })
+        # 当前建议置顶
+        suggestions.sort(key=lambda x: 0 if x["isCurrent"] else 1)
+
+    return {
+        "id": case.id,
+        "projectId": case.project_id,
+        "title": case.title,
+        "module": case.module,
+        "priority": case.priority,
+        "precondition": case.precondition,
+        "steps": case.steps,
+        "expected": case.expected,
+        "script": case.script,
+        "scriptPath": case.script_path if hasattr(case, "script_path") else None,
+        "status": case.status,
+        "reviewStatus": case.review_status if hasattr(case, "review_status") else None,
+        "version": case.version if hasattr(case, "version") else 1,
+        "loginMode": case.login_mode,
+        "loginRole": case.login_role,
+        "createdAt": case.created_at,
+        "updatedAt": case.updated_at,
+        "suggestions": suggestions,
+        "canEdit": True,
+        "lockedBy": None,
+    }
+
+
+@router.patch("/cases/{case_id}")
+async def update_case_with_review(
+    case_id: int,
+    body: CaseUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """保存用例修改（含乐观锁和建议状态回写）"""
+    case = db.query(TestCase).filter(TestCase.id == case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="该用例已不存在，可能已被删除")
+
+    update_fields = {
+        "title": body.title,
+        "precondition": body.precondition,
+        "steps": body.steps,
+        "expected": body.expected,
+        "script": body.script,
+    }
+
+    updated, error = update_case_with_suggestion(
+        db,
+        case_id,
+        update_fields=update_fields,
+        expected_version=body.version,
+        suggestion_uid=body.suggestion_id,
+        handled_by="user",
+    )
+
+    if error == "CASE_NOT_FOUND":
+        raise HTTPException(status_code=404, detail="该用例已不存在")
+    if error == "VERSION_CONFLICT":
+        raise HTTPException(
+            status_code=409,
+            detail="用例版本冲突，请刷新后重试",
+            headers={"X-Error-Code": "VERSION_CONFLICT",
+                     "X-Server-Version": str(case.version)},
+        )
+    if error:
+        raise HTTPException(status_code=500, detail=f"保存失败: {error}")
+
+    return {
+        "id": updated.id,
+        "version": updated.version,
+        "reviewStatus": updated.review_status,
+        "suggestionStatus": "resolved" if body.suggestion_id else None,
+        "message": "已保存，建议状态已更新" if body.suggestion_id else "已保存",
+        "canRecheck": True,
+    }
+
+
+@router.post("/cases/{case_id}/review")
+async def review_single_case(case_id: int, db: Session = Depends(get_db)):
+    """重新评审单条用例"""
+    case = db.query(TestCase).filter(TestCase.id == case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="该用例已不存在")
+
+    # 获取项目的功能点
+    requirements = get_requirements(db, case.project_id)
+    feature_points = []
+    for req in requirements:
+        if req.analysis_result and req.analysis_result.get("feature_points"):
+            feature_points.extend(req.analysis_result["feature_points"])
+
+    if not feature_points:
+        raise HTTPException(status_code=400, detail="项目没有需求分析结果，无法评审")
+
+    ai_case = GeneratedCase(
+        title=case.title,
+        module=case.module or "",
+        priority=case.priority or "P1",
+        precondition=case.precondition or "",
+        steps=case.steps or [],
+        expected=case.expected or "",
+        script=case.script or "",
+        stability_score=80,
+    )
+
+    ai_feature_points = []
+    for fp in feature_points:
+        ai_feature_points.append(FeaturePoint(
+            name=fp.get("name", ""),
+            priority=fp.get("priority", "P1"),
+            test_dimensions=fp.get("test_dimensions", []),
+            business_logic=fp.get("business_logic", ""),
+            risk_hint=fp.get("risk_hint", ""),
+        ))
+
+    ai = AIService()
+    try:
+        result = await ai.review_single_case(ai_case, ai_feature_points, case_id=case_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=f"重新评审未启动: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"重新评审失败: {type(e).__name__}: {e}")
+
+    # 评审通过（无新建议）
+    if not result.suggestions:
+        update_test_case_review_status(db, case_id, "review_passed")
+        return {
+            "taskId": f"review-{case_id}-{int(datetime.now(timezone.utc).timestamp())}",
+            "caseId": case_id,
+            "status": "completed",
+            "reviewResult": {
+                "passed": True,
+                "score": result.overall_score,
+                "newSuggestions": [],
+            },
+            "message": "复审通过，用例状态已更新为已通过",
+        }
+
+    # 评审仍有问题：创建新建议
+    for idx, s in enumerate(result.suggestions):
+        if s.case_id is None:
+            continue
+        suggestion_uid = f"S-recheck-{case_id}-{str(idx + 1).zfill(3)}"
+        create_review_suggestion(
+            db,
+            suggestion_uid=suggestion_uid,
+            review_report_id=0,  # 重新评审不绑定特定报告
+            project_id=case.project_id,
+            case_id=case_id,
+            field_path=s.field_path,
+            issue_type=s.issue_type,
+            severity=s.severity,
+            problem=s.problem or s.issue,
+            suggestion=s.suggestion,
+            sample_patch=s.sample_patch,
+        )
+
+    update_test_case_review_status(db, case_id, "needs_modification")
+
+    new_suggestions = [
+        {
+            "id": f"S-recheck-{case_id}-{str(idx + 1).zfill(3)}",
+            "fieldPath": s.field_path,
+            "issueType": s.issue_type,
+            "severity": s.severity,
+            "problem": s.problem or s.issue,
+            "suggestion": s.suggestion,
+        }
+        for idx, s in enumerate(result.suggestions)
+        if s.case_id is not None
+    ]
+
+    return {
+        "taskId": f"review-{case_id}-{int(datetime.now(timezone.utc).timestamp())}",
+        "caseId": case_id,
+        "status": "completed",
+        "reviewResult": {
+            "passed": False,
+            "score": result.overall_score,
+            "newSuggestions": new_suggestions,
+        },
+        "message": "复审仍有问题，已生成新的改进建议",
     }
 
 
@@ -829,6 +1446,7 @@ async def get_execution_detail(exec_id: int, db: Session = Depends(get_db)):
         "passed": execution.passed,
         "failed": execution.failed,
         "items": execution.items,
+        "logs": execution.logs,
         "startedAt": execution.started_at,
         "finishedAt": execution.finished_at
     }
@@ -851,14 +1469,27 @@ async def update_execution_status(
         update_data["items"] = body.items
     if body.finished_at:
         try:
-            update_data["finished_at"] = datetime.fromisoformat(body.finished_at.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(body.finished_at.replace('Z', '+00:00'))
+            # 统一转换为 UTC naive datetime，与 started_at 存储格式一致
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            update_data["finished_at"] = dt
         except (ValueError, AttributeError):
-            update_data["finished_at"] = datetime.now()
+            update_data["finished_at"] = datetime.utcnow()
 
     updated = update_execution(db, exec_id, **update_data)
     if not updated:
         raise HTTPException(status_code=404, detail="执行记录不存在")
     return {"id": updated.id, "status": updated.status}
+
+
+@router.delete("/executions/{exec_id}")
+async def remove_execution(exec_id: int, db: Session = Depends(get_db)):
+    """删除执行记录及其关联的测试报告"""
+    success = delete_execution(db, exec_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="执行记录不存在")
+    return {"success": True, "message": "执行记录及关联报告已删除"}
 
 
 # ==================== 测试报告 ====================
@@ -886,22 +1517,47 @@ async def list_project_reports(project_id: int, db: Session = Depends(get_db)):
             "passed": passed,
             "failed": failed,
             "passRate": f"{(passed / total * 100):.1f}%" if total else "0%",
-            "startedAt": exe.started_at.isoformat() if exe.started_at else None,
-            "finishedAt": exe.finished_at.isoformat() if exe.finished_at else None,
+            "startedAt": exe.started_at.isoformat() + '+00:00' if exe.started_at else None,
+            "finishedAt": exe.finished_at.isoformat() + '+00:00' if exe.finished_at else None,
             "hasReport": report is not None,
             "reportId": report.id if report else None,
             "items": items,
             "fails": report.fails if report and isinstance(report.fails, list) else [],
-            "generatedAt": report.generated_at.isoformat() if report and report.generated_at else None,
+            "logs": exe.logs if isinstance(exe.logs, list) else [],
+            "generatedAt": report.generated_at.isoformat() + '+00:00' if report and report.generated_at else None,
         })
     return result
 
 
+@router.post("/executions/{exec_id}/logs")
+async def add_execution_log_api(
+    exec_id: int,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    level = body.get("level", "info")
+    message = body.get("message", "")
+    add_execution_log(db, exec_id, level, message)
+    return {"status": "ok"}
+
+
 @router.get("/executions/{exec_id}/report")
 async def get_execution_report(exec_id: int, db: Session = Depends(get_db)):
+    execution = get_execution(db, exec_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="执行记录不存在")
     report = get_test_report(db, exec_id)
     if not report:
-        return {"passRate": "0%", "trends": {}, "modules": {}, "fails": []}
+        return {
+            "id": None,
+            "executionId": exec_id,
+            "passRate": "0%",
+            "trends": {},
+            "modules": {},
+            "fails": [],
+            "generatedAt": None,
+            "message": "该执行批次尚未生成报告"
+        }
     return {
         "id": report.id,
         "executionId": report.execution_id,
@@ -1005,19 +1661,210 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     total_cases = 0
     total_executions = 0
     total_passed = 0
-    
+    total_failed = 0
+
     for project in projects:
-        cases = get_test_cases(db, project.id)
-        total_cases += len(cases)
+        _, cases_count = get_test_cases(db, project.id, page=1, page_size=1)
+        total_cases += cases_count
         executions = get_executions(db, project.id)
         total_executions += len(executions)
         for exec in executions:
             total_passed += exec.passed or 0
-    
+            total_failed += exec.failed or 0
+
+    total_run = total_passed + total_failed
     return {
         "projectCount": project_count,
         "totalCases": total_cases,
         "totalExecutions": total_executions,
         "totalPassed": total_passed,
-        "passRate": f"{(total_passed / total_executions * 100):.1f}%" if total_executions > 0 else "0%"
+        "totalFailed": total_failed,
+        "passRate": f"{(total_passed / total_run * 100):.1f}%" if total_run > 0 else "0%"
     }
+
+
+# ==================== 登录态配置 ====================
+
+LOGIN_PROFILE_LIMIT = 5  # 每个项目最多5个登录态配置
+
+
+def _profile_to_dict(p):
+    """将 LoginProfile 转为前端字典"""
+    valid_until_str = p.valid_until.isoformat() + '+00:00' if p.valid_until else None
+    return {
+        "id": p.id,
+        "projectId": p.project_id,
+        "name": p.name,
+        "role": p.role,
+        "username": p.username,
+        "password": p.password,
+        "storageStatePath": p.storage_state_path,
+        "validDays": p.valid_days,
+        "validUntil": valid_until_str,
+        "status": p.status,
+        "isDefault": bool(p.is_default),
+        "createdAt": p.created_at.isoformat() + '+00:00' if p.created_at else None,
+        "updatedAt": p.updated_at.isoformat() + '+00:00' if p.updated_at else None,
+        # 登录脚本配置
+        "loginUrl": p.login_url,
+        "usernameSelector": p.username_selector,
+        "usernameSelectorType": p.username_selector_type,
+        "passwordSelector": p.password_selector,
+        "passwordSelectorType": p.password_selector_type,
+        "submitSelector": p.submit_selector,
+        "submitSelectorType": p.submit_selector_type,
+        "successIndicator": p.success_indicator,
+        "successIndicatorType": p.success_indicator_type,
+        "scriptMode": p.script_mode,
+        "customScript": p.custom_script,
+    }
+
+
+@router.get("/projects/{project_id}/login-profiles")
+async def list_login_profiles(project_id: int, db: Session = Depends(get_db)):
+    """获取项目的所有登录态配置（含匿名）"""
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    profiles = get_login_profiles(db, project_id)
+    result = [_profile_to_dict(p) for p in profiles]
+    # 匿名为系统内置，始终放在最前
+    anonymous = {
+        "id": "anonymous",
+        "projectId": project_id,
+        "name": "匿名(无登录态)",
+        "role": "guest",
+        "username": None,
+        "password": None,
+        "storageStatePath": None,
+        "validDays": 0,
+        "validUntil": None,
+        "status": "always-valid",
+        "isDefault": len(profiles) == 0,  # 无任何配置时匿名作为默认
+        "createdAt": None,
+        "updatedAt": None,
+        "loginUrl": None,
+        "usernameSelector": None, "usernameSelectorType": None,
+        "passwordSelector": None, "passwordSelectorType": None,
+        "submitSelector": None, "submitSelectorType": None,
+        "successIndicator": None, "successIndicatorType": None,
+        "scriptMode": "form", "customScript": None,
+    }
+    return [anonymous] + result
+
+
+@router.post("/projects/{project_id}/login-profiles")
+async def add_login_profile(
+    project_id: int,
+    req: LoginProfileCreate,
+    db: Session = Depends(get_db)
+):
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    # 校验上限（不含匿名，实际可配置4个 + 匿名1个 = 5个）
+    current_count = count_login_profiles(db, project_id)
+    if current_count >= LOGIN_PROFILE_LIMIT - 1:
+        raise HTTPException(
+            status_code=400,
+            detail=f"已达上限{LOGIN_PROFILE_LIMIT - 1}个可配置登录态（外加1个匿名），请先删除不需要的"
+        )
+    profile = create_login_profile(
+        db, project_id, req.name, req.role, req.username, req.password,
+        req.storageStatePath, req.validDays, req.isDefault,
+        login_url=req.loginUrl,
+        username_selector=req.usernameSelector, username_selector_type=req.usernameSelectorType,
+        password_selector=req.passwordSelector, password_selector_type=req.passwordSelectorType,
+        submit_selector=req.submitSelector, submit_selector_type=req.submitSelectorType,
+        success_indicator=req.successIndicator, success_indicator_type=req.successIndicatorType,
+        script_mode=req.scriptMode, custom_script=req.customScript
+    )
+    return _profile_to_dict(profile)
+
+
+@router.put("/login-profiles/{profile_id}")
+async def update_login_profile_api(
+    profile_id: int,
+    req: LoginProfileUpdate,
+    db: Session = Depends(get_db)
+):
+    profile = get_login_profile(db, profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="登录态配置不存在")
+    update_data = req.model_dump(exclude_none=True)
+    updated = update_login_profile(db, profile_id, **update_data)
+    return _profile_to_dict(updated)
+
+
+@router.post("/login-profiles/{profile_id}/generate-session")
+async def generate_login_session(profile_id: int, db: Session = Depends(get_db)):
+    """自动生成登录会话：执行 Playwright 登录脚本，保存 storageState 文件"""
+    profile = get_login_profile(db, profile_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="登录态配置不存在")
+
+    # 获取项目的应用 URL 作为 login_url 的默认值
+    project = get_project(db, profile.project_id)
+    app_url = project.app_url if project else None
+
+    # 执行登录脚本
+    generator = LoginSessionGenerator()
+    result = await generator.generate_session(profile, profile.project_id, app_url)
+
+    if result["success"]:
+        # 成功：更新 profile 的 storageStatePath、validUntil、status
+        update_login_profile(
+            db, profile_id,
+            storageStatePath=result["storageStatePath"],
+            status="valid",
+        )
+        # update_login_profile 会自动计算 validUntil（因为填了 storageStatePath）
+        db.refresh(profile)
+        updated = get_login_profile(db, profile_id)
+        return {
+            "success": True,
+            "message": "登录会话已生成",
+            "profile": _profile_to_dict(updated),
+            "duration_ms": result["duration_ms"],
+            "stdout": result["stdout"],
+            "stderr": result["stderr"],
+            "screenshots": result["screenshots"],
+        }
+    else:
+        return {
+            "success": False,
+            "message": result["error"] or "登录会话生成失败",
+            "duration_ms": result.get("duration_ms", 0),
+            "stdout": result.get("stdout", ""),
+            "stderr": result.get("stderr", ""),
+            "screenshots": result.get("screenshots", []),
+            "error": result.get("error"),
+        }
+
+
+@router.delete("/login-profiles/{profile_id}")
+async def remove_login_profile(profile_id: int, db: Session = Depends(get_db)):
+    success = delete_login_profile(db, profile_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="登录态配置不存在")
+    return {"success": True, "message": "登录态配置已删除"}
+
+
+@router.get("/projects/{project_id}/login-profiles/default")
+async def get_default_profile(project_id: int, db: Session = Depends(get_db)):
+    """获取项目的默认登录态"""
+    project = get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    profile = get_default_login_profile(db, project_id)
+    if not profile:
+        # 返回匿名
+        return {
+            "id": "anonymous",
+            "projectId": project_id,
+            "name": "匿名(无登录态)",
+            "role": "guest",
+            "status": "always-valid",
+            "isDefault": True,
+        }
+    return _profile_to_dict(profile)

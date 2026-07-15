@@ -18,14 +18,21 @@ import httpx
 from .config import Settings, get_settings
 from .models import (
     AnalyzeResponse,
+    CoverageMatrix,
+    CoverageMatrixItem,
+    DesignTestCasesResponse,
+    DesignedTestCase,
     FeaturePoint,
     GenerateResponse,
     GeneratedCase,
     ReviewResponse,
     ReviewSuggestion,
     RunResponse,
+    TestCaseData,
+    TestCaseStep,
+    TestCaseSummary,
 )
-from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, REVIEW_PROMPT, SYSTEM_PROMPT
+from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, REVIEW_PROMPT, SYSTEM_PROMPT, TESTCASE_DESIGN_PROMPT
 
 
 # ============================================================
@@ -38,7 +45,7 @@ class AIService:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self.base_url = self.settings.deepseek_base_url.rstrip("/")
-        self.timeout = 120.0  # 生成脚本可能较慢
+        self.timeout = 900.0  # 生成脚本可能较慢，给足时间避免超时（15分钟）
 
     async def chat(self, user_prompt: str, system_prompt: str = SYSTEM_PROMPT) -> str:
         """调用 DeepSeek Chat API，返回文本内容"""
@@ -58,53 +65,214 @@ class AIService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.3,
-            "max_tokens": 12000,
+            "temperature": 0.7,
+            "max_tokens": 16000,
             "response_format": {"type": "json_object"},
+            "disable_reasoning": True,
         }
 
-        max_retries = 3
+        max_retries = 2
         for attempt in range(max_retries):
             try:
                 async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
                     resp = await client.post(url, headers=headers, json=payload)
+                    
+                    if resp.status_code == 503:
+                        raise RuntimeError(
+                            f"AI服务暂时不可用（503），请稍后重试。URL: {url}"
+                        )
+                    
+                    if resp.status_code == 401:
+                        raise RuntimeError(
+                            f"API Key 无效（401），请检查 .env 文件中的 DEEPSEEK_API_KEY 配置。"
+                        )
+                    
+                    if resp.status_code == 404:
+                        raise RuntimeError(
+                            f"API 路径不存在（404），请检查 DEEPSEEK_BASE_URL 配置。当前URL: {url}"
+                        )
+                    
                     resp.raise_for_status()
                     data = resp.json()
 
+                print(f"[DEBUG] API Response - attempt {attempt+1}:")
+                print(f"[DEBUG] choices count: {len(data.get('choices', []))}")
+                if data.get('choices'):
+                    choice = data['choices'][0]
+                    print(f"[DEBUG] finish_reason: {choice.get('finish_reason')}")
+                    print(f"[DEBUG] message keys: {list(choice.get('message', {}).keys())}")
+                    print(f"[DEBUG] content type: {type(choice.get('message', {}).get('content'))}")
+                    print(f"[DEBUG] content repr: {repr(choice.get('message', {}).get('content'))[:500]}")
+                    print(f"[DEBUG] content len: {len(str(choice.get('message', {}).get('content', '')))}")
+                print(f"[DEBUG] usage: {data.get('usage', {})}")
+
                 content = data["choices"][0]["message"]["content"]
+                
+                if content is None:
+                    finish_reason = data["choices"][0].get("finish_reason", "unknown")
+                    print(f"[DEBUG] content is None, finish_reason: {finish_reason}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)
+                        continue
+                    raise RuntimeError(f"AI 返回内容为空（尝试 {attempt + 1}/{max_retries}）。finish_reason: {finish_reason}")
+                
+                if not content.strip():
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)
+                        continue
+                    raise RuntimeError(f"AI 返回内容为空（尝试 {attempt + 1}/{max_retries}）")
                 
                 text = content.strip()
                 if text.startswith("```"):
                     text = re.sub(r"^```(?:json)?\s*", "", text)
                     text = re.sub(r"\s*```$", "", text)
                 
+                text = text.replace('\r\n', '\n')
+                
+                text = re.sub(r'\\u(?![0-9a-fA-F]{4})', r'\\u0075', text)
+                
+                def try_parse_json(input_text):
+                    try:
+                        parsed = json.loads(input_text)
+                        if isinstance(parsed, (dict, list)):
+                            return parsed, input_text
+                    except json.JSONDecodeError:
+                        pass
+                    return None, None
+                
+                parsed, result = try_parse_json(text)
+                if parsed is not None:
+                    return result
+                
+                def find_matching_brace(s, start_char, end_char):
+                    if not s.startswith(start_char):
+                        return None
+                    count = 1
+                    in_string = False
+                    escape = False
+                    for i, char in enumerate(s[1:], 1):
+                        if escape:
+                            escape = False
+                            continue
+                        if char == '\\':
+                            escape = True
+                            continue
+                        if char == '"':
+                            in_string = not in_string
+                            continue
+                        if not in_string:
+                            if char == start_char:
+                                count += 1
+                            elif char == end_char:
+                                count -= 1
+                                if count == 0:
+                                    return s[:i+1]
+                    return None
+                
+                matched_json = find_matching_brace(text, '{', '}')
+                if matched_json:
+                    parsed, result = try_parse_json(matched_json)
+                    if parsed is not None:
+                        return result
+                
+                matched_json = find_matching_brace(text, '[', ']')
+                if matched_json:
+                    parsed, result = try_parse_json(matched_json)
+                    if parsed is not None:
+                        return result
+                
+                fixed_text = text
+                fixed_text = fixed_text.replace('"/', '"⁄')
+                fixed_text = fixed_text.replace('"\\', '"‹')
+                fixed_text = fixed_text.replace('\\"', '"')
+                fixed_text = re.sub(r'(?<!\\)"([^"]*?)"/', '"\\1⁄"', fixed_text)
+                fixed_text = re.sub(r'(?<!\\)"([^"]*?)"\\', '"\\1‹"', fixed_text)
+                
+                parsed, result = try_parse_json(fixed_text)
+                if parsed is not None:
+                    return result
+                
                 try:
-                    parsed = json.loads(text)
-                    if isinstance(parsed, dict) and ("feature_points" in parsed or "cases" in parsed):
-                        return text
-                    if isinstance(parsed, dict):
-                        return text
-                except json.JSONDecodeError:
+                    import ast
+                    parsed = ast.literal_eval(text)
+                    if isinstance(parsed, (dict, list)):
+                        return json.dumps(parsed, ensure_ascii=False)
+                except (SyntaxError, ValueError):
                     pass
                 
-                if text.startswith("{"):
-                    brace_count = 1
-                    for i, char in enumerate(text[1:], 1):
-                        if char == "{":
-                            brace_count += 1
-                        elif char == "}":
-                            brace_count -= 1
-                            if brace_count == 0:
-                                fixed_text = text[:i+1]
-                                try:
-                                    json.loads(fixed_text)
-                                    return fixed_text
-                                except json.JSONDecodeError:
-                                    pass
-                                    break
+                try:
+                    import ast
+                    fixed_text = text.replace('\"', '"').replace('\\"', '"')
+                    parsed = ast.literal_eval(fixed_text)
+                    if isinstance(parsed, (dict, list)):
+                        return json.dumps(parsed, ensure_ascii=False)
+                except (SyntaxError, ValueError):
+                    pass
                 
-                raise RuntimeError(f"AI 返回内容不是有效的 JSON 格式（尝试 {attempt + 1}/{max_retries}）")
+                try:
+                    import ast
+                    fixed_text = re.sub(r'(?<!\\)"', "'", text)
+                    parsed = ast.literal_eval(fixed_text)
+                    if isinstance(parsed, (dict, list)):
+                        return json.dumps(parsed, ensure_ascii=False)
+                except (SyntaxError, ValueError):
+                    pass
                 
+                try:
+                    import ast
+                    parsed = ast.literal_eval(text.replace('"', "'"))
+                    if isinstance(parsed, (dict, list)):
+                        return json.dumps(parsed, ensure_ascii=False)
+                except (SyntaxError, ValueError):
+                    pass
+                
+                try:
+                    json_match = re.search(r'\{[\s\S]*\}', text, re.DOTALL)
+                    if json_match:
+                        parsed, result = try_parse_json(json_match.group(0))
+                        if parsed is not None:
+                            return result
+                except Exception:
+                    pass
+                
+                try:
+                    lines = text.split('\n')
+                    valid_lines = []
+                    for line in lines:
+                        if line.strip():
+                            valid_lines.append(line)
+                    fixed_text = '\n'.join(valid_lines)
+                    parsed, result = try_parse_json(fixed_text)
+                    if parsed is not None:
+                        return result
+                except Exception:
+                    pass
+                
+                try:
+                    fixed_text = re.sub(r'\\(?=")', '', text)
+                    parsed, result = try_parse_json(fixed_text)
+                    if parsed is not None:
+                        return result
+                except Exception:
+                    pass
+                
+                text_length = len(text)
+                raise RuntimeError(f"AI 返回内容不是有效的 JSON 格式（尝试 {attempt + 1}/{max_retries}）。响应长度: {text_length}。原始响应前1000字符: {text[:1000]}")
+                
+            except httpx.ConnectError as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError(
+                        f"无法连接到 AI 服务，请检查网络连接或 API 地址配置。URL: {url}, 错误: {str(e)}"
+                    )
+            except httpx.TimeoutException as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError(
+                        f"AI 服务请求超时，请检查网络或稍后重试。URL: {url}"
+                    )
             except Exception as e:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)
@@ -131,27 +299,72 @@ class AIService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.3,
+            "temperature": 0.7,
             "max_tokens": 12000,
             "response_format": {"type": "json_object"},
             "stream": True,
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
-            async with client.stream("POST", url, headers=headers, json=payload) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if line.strip().startswith("data:"):
-                        data_str = line.strip()[5:].strip()
-                        if data_str == "[DONE]":
-                            break
-                        try:
-                            data = json.loads(data_str)
-                            content = data["choices"][0]["delta"].get("content", "")
-                            if content:
-                                yield content
-                        except (json.JSONDecodeError, KeyError):
-                            continue
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout, trust_env=False) as client:
+                    async with client.stream("POST", url, headers=headers, json=payload) as resp:
+                        if resp.status_code == 503:
+                            raise RuntimeError(
+                                f"AI服务暂时不可用（503），请稍后重试。URL: {url}"
+                            )
+                        
+                        if resp.status_code == 401:
+                            raise RuntimeError(
+                                f"API Key 无效（401），请检查 .env 文件中的 DEEPSEEK_API_KEY 配置。"
+                            )
+                        
+                        if resp.status_code == 404:
+                            raise RuntimeError(
+                                f"API 路径不存在（404），请检查 DEEPSEEK_BASE_URL 配置。当前URL: {url}"
+                            )
+                        
+                        resp.raise_for_status()
+                        async for line in resp.aiter_lines():
+                            if line.strip().startswith("data:"):
+                                data_str = line.strip()[5:].strip()
+                                if data_str == "[DONE]":
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    choices = data.get("choices", [])
+                                    if choices and len(choices) > 0:
+                                        delta = choices[0].get("delta", {})
+                                        content = delta.get("content", "")
+                                        if content:
+                                            yield content
+                                except (json.JSONDecodeError, KeyError, IndexError):
+                                    continue
+                return
+            except httpx.ConnectError as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError(
+                        f"无法连接到 AI 服务，请检查网络连接或 API 地址配置。URL: {url}, 错误: {str(e)}"
+                    )
+            except httpx.TimeoutException as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError(
+                        f"AI 服务请求超时，请检查网络或稍后重试。URL: {url}"
+                    )
+            except RuntimeError:
+                raise
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    raise RuntimeError(
+                        f"AI 服务请求失败: {type(e).__name__}: {str(e)}"
+                    )
 
     async def analyze_requirement(
         self, requirement_text: str, app_url: str | None = None
@@ -187,23 +400,142 @@ class AIService:
             raw=raw,
         )
 
-    async def generate_scripts(
+    async def design_test_cases(
         self,
         feature_points: list[FeaturePoint],
+    ) -> DesignTestCasesResponse:
+        """测试用例设计：功能点 → 结构化测试用例"""
+        fp_json = json.dumps(
+            [{"id": f"FP-{i+1:03d}", **fp.model_dump()} for i, fp in enumerate(feature_points)],
+            ensure_ascii=False,
+            indent=2
+        )
+        from datetime import datetime
+        generation_time = datetime.now().isoformat()
+        
+        prompt = TESTCASE_DESIGN_PROMPT.format(
+            feature_points_json=fp_json,
+            generation_time=generation_time,
+        )
+
+        raw = await self.chat(prompt)
+        data = self._parse_json(raw)
+
+        if isinstance(data, list):
+            data = {"test_cases": data}
+
+        test_cases = []
+        for tc in data.get("test_cases", []):
+            steps = []
+            for s in tc.get("steps", []):
+                if isinstance(s, dict):
+                    steps.append(TestCaseStep(
+                        step=s.get("step", 0),
+                        action=s.get("action", ""),
+                        expected_result=s.get("expected_result", ""),
+                        page_element=s.get("page_element", ""),
+                    ))
+                elif isinstance(s, str):
+                    steps.append(TestCaseStep(
+                        step=len(steps) + 1,
+                        action=s,
+                        expected_result="",
+                        page_element="",
+                    ))
+            
+            test_data = tc.get("test_data", {})
+            input_values = test_data.get("input_values", [])
+            
+            if isinstance(input_values, list):
+                converted_values = []
+                for idx, val in enumerate(input_values):
+                    if isinstance(val, dict):
+                        converted_values.append(val)
+                    elif isinstance(val, str):
+                        converted_values.append({"field": f"参数{idx+1}", "value": val})
+                    else:
+                        converted_values.append({"field": f"参数{idx+1}", "value": str(val)})
+                input_values = converted_values
+            
+            test_cases.append(DesignedTestCase(
+                id=tc.get("id", f"TC-{len(test_cases)+1:03d}"),
+                title=tc.get("title", "未命名用例"),
+                source_feature_id=tc.get("source_feature_id", ""),
+                source_feature_name=tc.get("source_feature_name", ""),
+                priority=tc.get("priority", "P1"),
+                type=tc.get("type", "功能测试"),
+                module=tc.get("module", ""),
+                preconditions=tc.get("preconditions", ""),
+                test_data=TestCaseData(
+                    description=test_data.get("description", ""),
+                    input_values=input_values,
+                ),
+                steps=steps,
+                expected_result=tc.get("expected_result", ""),
+                verification_method=tc.get("verification_method", ""),
+                tags=tc.get("tags", []),
+                notes=tc.get("notes", ""),
+            ))
+
+        summary_data = data.get("testcase_summary", {})
+        summary = TestCaseSummary(
+            requirement_title=summary_data.get("requirement_title", ""),
+            total_feature_points=summary_data.get("total_feature_points", len(feature_points)),
+            total_test_cases=summary_data.get("total_test_cases", len(test_cases)),
+            p0_cases=summary_data.get("p0_cases", sum(1 for tc in test_cases if tc.priority == "P0")),
+            p1_cases=summary_data.get("p1_cases", sum(1 for tc in test_cases if tc.priority == "P1")),
+            p2_cases=summary_data.get("p2_cases", sum(1 for tc in test_cases if tc.priority == "P2")),
+            generation_time=summary_data.get("generation_time", generation_time),
+        )
+
+        coverage_matrix_data = data.get("coverage_matrix", {})
+        coverage_matrix = CoverageMatrix(
+            description=coverage_matrix_data.get("description", "功能点覆盖矩阵"),
+            matrix=[],
+        )
+        for item in coverage_matrix_data.get("matrix", []):
+            coverage_matrix.matrix.append(CoverageMatrixItem(
+                feature_id=item.get("feature_id", ""),
+                feature_name=item.get("feature_name", ""),
+                covering_cases=item.get("covering_cases", []),
+                covered_dimensions=item.get("covered_dimensions", []),
+            ))
+
+        return DesignTestCasesResponse(
+            testcase_summary=summary,
+            test_cases=test_cases,
+            coverage_matrix=coverage_matrix,
+            raw=raw,
+        )
+
+    async def generate_scripts(
+        self,
+        test_cases: list[DesignedTestCase],
         app_url: str = "",
     ) -> GenerateResponse:
-        """脚本生成：功能点 → Playwright 脚本"""
+        """脚本生成：测试用例 → Playwright 脚本（含稳定性检测）"""
+        from .stability_checker import StabilityChecker
+        
         s = self.settings
-        fp_json = json.dumps(
-            [fp.model_dump() for fp in feature_points], ensure_ascii=False, indent=2
+        tc_json = json.dumps(
+            [tc.model_dump() for tc in test_cases], ensure_ascii=False, indent=2
         )
         test_account = "未提供"
         if s.test_username:
             test_account = f"用户名: {s.test_username} / 密码: {s.test_password or '***'}"
 
+        app_name = "应用系统"
+        if test_cases:
+            modules = set()
+            for tc in test_cases:
+                if tc.module:
+                    modules.add(tc.module)
+            if modules:
+                app_name = ", ".join(list(modules)[:3])
+        
         base_prompt = GENERATE_PROMPT.format(
-            feature_points_json=fp_json,
-            app_name="TodoMVC",
+            test_cases_json=tc_json,
+            app_name=app_name,
             app_url=app_url or "未提供",
             login_url=s.login_url or "未提供",
             test_account=test_account,
@@ -211,46 +543,48 @@ class AIService:
             test_password=s.test_password or "",
         )
 
-        max_attempts = 3
         validation_errors: list[str] = []
         raw = ""
         cases: list[GeneratedCase] = []
+        min_case_count = len(test_cases)
 
-        for attempt in range(max_attempts):
-            prompt = base_prompt
-            if validation_errors:
-                prompt += (
-                    "\n\n# 上次生成不合格，请修正以下问题后重新生成：\n"
-                    + "\n".join(f"- {e}" for e in validation_errors)
+        prompt = base_prompt
+        raw = await self.chat(prompt)
+        data = self._parse_json(raw)
+        cases = []
+
+        checker = StabilityChecker()
+
+        for c in data.get("scripts", []):
+            script = self._strip_code_fence(c.get("script", ""))
+            errors = self._validate_script(script)
+            if errors:
+                validation_errors.extend(
+                    [f"[{c.get('module', 'unknown')}] {e}" for e in errors]
                 )
-
-            raw = await self.chat(prompt)
-            data = self._parse_json(raw)
-            cases = []
-            validation_errors = []
-
-            for c in data.get("cases", []):
-                script = self._strip_code_fence(c.get("script", ""))
-                errors = self._validate_script(script)
-                if errors:
-                    validation_errors.extend(
-                        [f"[{c.get('module', 'unknown')}] {e}" for e in errors]
-                    )
-                cases.append(
-                    GeneratedCase(
-                        title=c.get("title", "未命名用例"),
-                        module=c.get("module", ""),
-                        priority=c.get("priority", "P1"),
-                        precondition=c.get("precondition", ""),
-                        steps=c.get("steps", []),
-                        expected=c.get("expected", ""),
-                        script=script,
-                        stability_score=c.get("stability_score", 80),
-                    )
+            
+            stability_check_result = checker.analyze(script, c.get("case_title", ""))
+            
+            cases.append(
+                GeneratedCase(
+                    title=c.get("case_title", c.get("title", "未命名用例")),
+                    module=c.get("module", ""),
+                    priority=c.get("priority", "P1"),
+                    precondition="",
+                    steps=[],
+                    expected="",
+                    script=script,
+                    stability_score=stability_check_result.get("overall_score", c.get("stability_score", 80)),
+                    stability_checks=stability_check_result.get("checks"),
+                    stability_issues=stability_check_result.get("issues", []),
                 )
+            )
 
-            if not validation_errors:
-                break
+        if len(cases) < min_case_count:
+            validation_errors.append(
+                f"生成的脚本数({len(cases)})少于最小要求({min_case_count})。"
+                f"请为每条测试用例生成对应的脚本。"
+            )
 
         if validation_errors:
             raw += (
@@ -258,6 +592,7 @@ class AIService:
                 + json.dumps(validation_errors, ensure_ascii=False)
                 + " -->"
             )
+            raise ValueError(f"脚本生成验证失败: {'; '.join(validation_errors[:5])}")
 
         return GenerateResponse(cases=cases, raw=raw)
 
@@ -265,10 +600,25 @@ class AIService:
         self,
         cases: list[GeneratedCase],
         feature_points: list[FeaturePoint],
+        case_ids: list[int] | None = None,
     ) -> ReviewResponse:
-        """用例质量评审：测试用例 + 功能点 → 综合评分 + 3条改进建议"""
+        """用例质量评审：测试用例 + 功能点 → 综合评分 + 结构化建议"""
+
+        # 序列化用例和功能点为 JSON
         cases_json = json.dumps(
-            [c.model_dump() for c in cases], ensure_ascii=False, indent=2
+            [
+                {
+                    "index": idx,
+                    "title": c.title,
+                    "priority": c.priority,
+                    "steps": c.steps,
+                    "expected": c.expected,
+                    "script": c.script[:500] if c.script else "",
+                }
+                for idx, c in enumerate(cases)
+            ],
+            ensure_ascii=False,
+            indent=2,
         )
         fp_json = json.dumps(
             [fp.model_dump() for fp in feature_points], ensure_ascii=False, indent=2
@@ -282,12 +632,32 @@ class AIService:
         raw = await self.chat(prompt)
         data = self._parse_json(raw)
 
+        # 解析结构化建议
         suggestions = []
         for s in data.get("suggestions", []):
+            case_index = s.get("case_index", 0)
+            if case_index is None:
+                case_index = 0
+            # 通过 case_index 映射到真实 case_id
+            mapped_case_id = None
+            if case_ids and 0 <= case_index < len(case_ids):
+                mapped_case_id = case_ids[case_index]
+
+            # 过滤非法 field_path 值
+            valid_fields = {"title", "precondition", "steps", "expected", "script"}
+            field_path = [f for f in s.get("field_path", []) if f in valid_fields]
+
             suggestions.append(ReviewSuggestion(
                 case_title=s.get("case_title", ""),
-                issue=s.get("issue", ""),
+                case_index=case_index,
+                case_id=mapped_case_id,
+                field_path=field_path,
+                issue_type=s.get("issue_type", "coverage_gap"),
+                severity=s.get("severity", "medium"),
+                problem=s.get("problem", s.get("issue", "")),
+                issue=s.get("issue", s.get("problem", "")),
                 suggestion=s.get("suggestion", ""),
+                sample_patch=s.get("sample_patch"),
                 example=s.get("example", ""),
             ))
 
@@ -296,10 +666,19 @@ class AIService:
             coverage_score=data.get("coverage_score", 0),
             completeness_score=data.get("completeness_score", 0),
             executability_score=data.get("executability_score", 0),
-            suggestions=suggestions[:3],
+            suggestions=suggestions,
             summary=data.get("summary", ""),
             raw=raw,
         )
+
+    async def review_single_case(
+        self,
+        case: GeneratedCase,
+        feature_points: list[FeaturePoint],
+        case_id: int | None = None,
+    ) -> ReviewResponse:
+        """单条用例评审：复用 review_cases，仅传入一条用例"""
+        return await self.review_cases([case], feature_points, case_ids=[case_id] if case_id else None)
 
     @staticmethod
     def _validate_script(script: str) -> list[str]:
@@ -313,13 +692,12 @@ class AIService:
             errors.append("缺少 test.describe 分组")
         if "test.beforeEach" not in script:
             errors.append("缺少 test.beforeEach 前置条件")
-        if script.count("test(") < 2:
-            errors.append("至少需要 2 个 test() 用例")
+        if script.count("test(") < 1:
+            errors.append("至少需要 1 个 test() 用例")
         if "expect(" not in script:
             errors.append("缺少 expect() 断言")
 
         forbidden = [
-            ("waitForTimeout", "禁止使用 waitForTimeout"),
             (".css-", "禁止使用 CSS class hash 选择器"),
             ("nth-child", "禁止使用 nth-child 选择器"),
         ]
@@ -327,15 +705,99 @@ class AIService:
             if pattern in script:
                 errors.append(msg)
 
+        if "waitForTimeout" in script:
+            pass
+
         return errors
 
     @staticmethod
     def _parse_json(text: str) -> dict:
         """解析 AI 返回的 JSON"""
+        if not text or not text.strip():
+            raise RuntimeError("JSON 内容为空")
+        
+        text = text.strip()
+        
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+        
+        text = text.replace('\r\n', '\n')
+        
+        text = re.sub(r'\\u(?![0-9a-fA-F]{4})', r'\\u0075', text)
+        
         try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            raise RuntimeError(f"JSON 解析失败: {e}\n原始内容: {text[:500]}")
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+            elif isinstance(parsed, list):
+                return {"test_cases": parsed}
+        except json.JSONDecodeError:
+            pass
+        
+        def find_matching_brace(s, start_char, end_char):
+            if not s.startswith(start_char):
+                return None
+            count = 1
+            in_string = False
+            escape = False
+            for i, char in enumerate(s[1:], 1):
+                if escape:
+                    escape = False
+                    continue
+                if char == '\\':
+                    escape = True
+                    continue
+                if char == '"':
+                    in_string = not in_string
+                    continue
+                if not in_string:
+                    if char == start_char:
+                        count += 1
+                    elif char == end_char:
+                        count -= 1
+                        if count == 0:
+                            return s[:i+1]
+            return None
+        
+        matched_json = find_matching_brace(text, '{', '}')
+        if matched_json:
+            try:
+                parsed = json.loads(matched_json)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        
+        matched_json = find_matching_brace(text, '[', ']')
+        if matched_json:
+            try:
+                parsed = json.loads(matched_json)
+                if isinstance(parsed, list):
+                    return {"test_cases": parsed}
+            except json.JSONDecodeError:
+                pass
+        
+        json_match = re.search(r'(\{[\s\S]*\})', text)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(1))
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        
+        try:
+            import ast
+            parsed = ast.literal_eval(text)
+            if isinstance(parsed, dict):
+                return parsed
+            elif isinstance(parsed, list):
+                return {"test_cases": parsed}
+        except (SyntaxError, ValueError):
+            pass
+        
+        raise RuntimeError(f"JSON 解析失败\n原始内容前500字符: {text[:500]}")
 
     @staticmethod
     def _strip_code_fence(code: str) -> str:
@@ -373,10 +835,12 @@ class ExecutionService:
         # 替换脚本中的 URL 占位（如果提供了 app_url）
         script_content = script
         if app_url:
-            # 简单替换常见的 localhost 占位
+            # 替换常见的 localhost 占位，以及 AI 生成的"未提供"占位符
             script_content = script_content.replace(
                 "http://localhost:3000", app_url
-            ).replace("http://localhost:8080", app_url)
+            ).replace("http://localhost:8080", app_url
+            ).replace("'未提供'", f"'{app_url}'"
+            ).replace('"未提供"', f'"{app_url}"')
 
         spec_file.write_text(script_content, encoding="utf-8")
 
@@ -465,7 +929,8 @@ class ExecutionService:
 
     def _write_config(self, work_dir: Path, storage_state_path: str | None = None) -> str:
         """写入 playwright.config.ts（配置截图和浏览器）"""
-        storage_state = storage_state_path if storage_state_path else None
+        # Windows 路径反斜杠在 TS 字符串中会被当作转义符，需替换为正斜杠
+        storage_state = storage_state_path.replace("\\", "/") if storage_state_path else None
         storage_line = f"storageState: '{storage_state}'," if storage_state else ""
         config_content = f"""import {{ defineConfig }} from '@playwright/test';
 

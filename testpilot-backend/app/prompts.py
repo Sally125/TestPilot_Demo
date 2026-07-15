@@ -103,201 +103,155 @@ ANALYZE_PROMPT = """请分析以下需求文档，提取所有需要测试的功
 
 
 # ============================================================
-# Prompt 2：脚本生成（功能点 → Playwright 脚本）
+# Prompt 2：测试用例设计（功能点 → 结构化测试用例）
 # ============================================================
 
-GENERATE_PROMPT = """请根据以下功能点，生成可直接运行的 Playwright 测试用例。
+TESTCASE_DESIGN_PROMPT = """你是资深测试工程师，基于功能点清单生成结构化测试用例。
 
-# 功能点列表
-{feature_points_json}
+## 规则
+- 测试用例数 >= 功能点数
+- P0功能点生成2-3条，P1生成1-2条，P2生成1条
+- 输出纯JSON，无额外文字
 
-# 被测应用信息
-- 应用名称: {app_name}
-- URL: {app_url}
-- 登录 URL: {login_url}
-- 测试账号: {test_account}
+## 字段说明
+- test_data.input_values：必须是字典列表，每个字典包含 "field"（字段名）和 "value"（字段值）两个键，格式如 [{{"field": "用户名", "value": "testuser"}}, {{"field": "密码", "value": "123456"}}]
 
-# 选择器优先级规则（必须严格遵守，这是脚本稳定运行的关键）
-## 优先级 1：getByTestId（最高优先级）
-- 使用场景：页面元素有 data-testid 属性时
-- 示例：`page.getByTestId('email-input')`
-
-## 优先级 2：getByRole（强烈推荐）
-- 使用场景：按钮、链接、标题、输入框等语义化元素
-- 示例：
-  - `page.getByRole('button', {{ name: '登录' }})`
-  - `page.getByRole('link', {{ name: '立即注册' }})`
-  - `page.getByRole('heading', {{ name: '欢迎回来' }})`
-  - `page.getByRole('checkbox')`
-
-## 优先级 3：getByLabel（输入框专用）
-- 使用场景：有 label 关联的输入框
-- 示例：`page.getByLabel('邮箱')`、`page.getByLabel('密码')`
-
-## 优先级 4：getByPlaceholder（输入框备选）
-- 使用场景：有 placeholder 属性的输入框
-- 示例：`page.getByPlaceholder('What needs to be done?')`
-
-## 优先级 5：getByText（文本内容）
-- 使用场景：验证页面文本内容、标签文字
-- 示例：`page.getByText('欢迎回来')`、`page.getByText('1 item left')`
-
-## 禁止使用的选择器（使用将导致脚本不稳定）
-- CSS class hash：`.css-1a2b3c`
-- nth-child：`:nth-child(3)`
-- 绝对 XPath：`/html/body/div[1]/...`
-- 纯索引：`.first` / `.nth(0)`（除非语义明确）
-- 属性选择器：`page.locator('[class*="btn"]')`（除非没有其他选择）
-
-# 生成要求
-
-## 用例覆盖
-- 按功能模块分组，每个模块输出 1 个完整 `.spec.ts` 脚本
-- 建议分为 2-3 个模块
-- 每个模块内至少 2 个 `test()`（正常流程 + 异常流程）
-- 每条用例都要有明确的断言
-
-## 脚本结构（硬性约束，违反则脚本不合格）
-1. **必须**包含 `test.describe('{app_name}-xxx', () => {{ ... }})` 包裹所有用例
-2. **必须**包含 `test.beforeEach`，在其中 `await page.goto('{app_url}', {{ waitUntil: 'domcontentloaded' }})` 完成前置条件
-3. **禁止**每个 test 内重复 `page.goto`（前置条件统一放 beforeEach）
-4. `page.goto` **必须**使用 `{{ waitUntil: 'domcontentloaded' }}`，不要等待 `load` 事件
-5. 每个 `test()` 内**至少一个** `expect()` 断言
-6. **禁止**验证按钮颜色/背景色，只验证文本和可见性
-
-## 等待机制（禁止硬编码等待）
-- **严禁**使用 `page.waitForTimeout()` 或 `await new Promise(r => setTimeout(r, ...))`
-- 必须使用 Playwright 的 Web-First 自动等待断言：
-  - `await expect(locator).toBeVisible()`
-  - `await expect(locator).toHaveText('xxx')`
-  - `await expect(page).toHaveURL('xxx')`
-  - `await locator.click()`（click 自带自动等待）
-
-## 登录态处理（storageState 模板）
-如果测试需要登录且提供了登录账号，使用以下模板注入登录态：
-
-```typescript
-import {{ test, expect }} from '@playwright/test';
-
-test.describe('{app_name}-登录态测试', () => {{
-  test.use({{
-    storageState: {{
-      cookies: [],
-      origins: []
-    }}
-  }});
-
-  test.beforeEach(async ({{ page }}) => {{
-    await page.goto('{login_url}', {{ waitUntil: 'domcontentloaded' }});
-    // 如果 storageState 为空，通过 UI 登录
-    await page.getByLabel('邮箱').fill('{test_username}');
-    await page.getByLabel('密码').fill('{test_password}');
-    await page.getByRole('button', {{ name: '登录' }}).click();
-    await expect(page).toHaveURL('{app_url}');
-  }});
-
-  test('登录后验证', async ({{ page }}) => {{
-    // 登录后的测试逻辑
-  }});
-}});
-```
-
-## URL 使用规则
-- 如果提供了 `{login_url}`，`test.beforeEach` 中访问登录页
-- 如果只有 `{app_url}`，`test.beforeEach` 中直接访问应用首页
-- 页面跳转断言：`await expect(page).toHaveURL('{app_url}')`
-
-## 脚本模板（必须遵循此结构）
-```typescript
-import {{ test, expect }} from '@playwright/test';
-
-test.describe('{app_name}-功能模块', () => {{
-  test.beforeEach(async ({{ page }}) => {{
-    await page.goto('{app_url}', {{ waitUntil: 'domcontentloaded' }});
-  }});
-
-  test('正常流程测试', async ({{ page }}) => {{
-    // 使用 getByRole / getByLabel / getByPlaceholder / getByText
-    await page.getByPlaceholder('What needs to be done?').fill('测试内容');
-    await page.getByRole('button', {{ name: '提交' }}).click();
-    await expect(page.getByText('测试内容')).toBeVisible();
-  }});
-
-  test('异常流程测试', async ({{ page }}) => {{
-    await page.getByRole('button', {{ name: '提交' }}).click();
-    await expect(page.getByText(/错误|必填/)).toBeVisible();
-  }});
-}});
-```
-
-## 稳定性评分
-为每个模块评估稳定性评分（0-100）：
-- 90-100：选择器稳健、断言清晰、无风险
-- 75-89：个别选择器可能需要人工确认
-- 60-74：存在脆弱选择器或登录态问题
-- <60：高风险
-
-# 输出格式（严格 JSON，不要包含 markdown 代码块标记）
-# 重要：每个 case 代表一个功能模块，script 字段是该模块的完整 .spec.ts 文件（含 describe + beforeEach + 多个 test）
+## 输出格式
 {{
-  "cases": [
+  "testcase_summary": {{
+    "requirement_title": "需求标题",
+    "total_feature_points": 0,
+    "total_test_cases": 0,
+    "p0_cases": 0,
+    "p1_cases": 0,
+    "p2_cases": 0,
+    "generation_time": "{generation_time}"
+  }},
+  "test_cases": [
     {{
-      "title": "模块名称",
+      "id": "TC-001",
+      "title": "用例标题",
+      "source_feature_id": "FP-001",
+      "source_feature_name": "功能点名称",
+      "priority": "P0",
+      "type": "功能测试",
+      "module": "模块名",
+      "preconditions": "前置条件",
+      "test_data": {{"description": "测试数据描述", "input_values": [{{"field": "用户名", "value": "testuser@example.com"}}, {{"field": "密码", "value": "Abc12345"}}]}},
+      "steps": [{{"step": 1, "action": "操作动作", "expected_result": "预期结果", "page_element": ""}}],
+      "expected_result": "整体预期结果",
+      "verification_method": "验证方式",
+      "tags": ["标签"],
+      "notes": ""
+    }}
+  ],
+  "coverage_matrix": {{"description": "覆盖矩阵", "matrix": [{{"feature_id": "FP-001", "feature_name": "功能点名称", "covering_cases": ["TC-001"], "covered_dimensions": ["功能测试"]}}]}}
+}}
+
+{feature_points_json}"""
+
+
+# ============================================================
+# Prompt 3：脚本生成（测试用例 → Playwright 脚本）
+# ============================================================
+
+GENERATE_PROMPT = """根据以下测试用例，生成 Playwright 测试脚本。
+
+# 测试用例
+{test_cases_json}
+
+# 应用信息
+- 名称: {app_name}
+- URL: {app_url}
+- 登录URL: {login_url}
+- 账号: {test_account}
+
+# 核心规则（必须遵守）
+1. 选择器优先级：getByRole > getByLabel > getByPlaceholder > getByText > getByTestId
+   - 注意：getByTestId 仅在确认页面元素有 data-testid 属性时使用，不要假设页面存在 data-testid
+   - 优先使用语义化选择器：按钮用 getByRole('button', {{ name: 'xxx' }})，输入框用 getByLabel('xxx')
+2. 禁止：CSS class hash(.css-xxx)、nth-child、绝对XPath、waitForTimeout
+3. 结构：test.describe包裹 + test.beforeEach(含page.goto) + test(含expect断言)
+4. page.goto使用 waitUntil: 'domcontentloaded'
+5. 登录态处理：测试执行时会通过 storageState 自动预加载登录会话，脚本中**不要包含任何登录步骤**（如填写账号密码、点击登录按钮等）。直接访问目标页面即可，假设用户已处于登录状态。
+6. 断言策略：使用 toBeVisible() 前，先确认元素确实存在于页面中；对于不确定是否存在的元素，使用 toHaveCount(0) 或 count() 判断
+7. **触发入口元素**：表单/弹窗类交互前，必须先点击触发入口按钮（如"+ 添加任务"、"新建"按钮）才能显示表单。不要假设表单字段在 page.goto 后立即可见。典型模式：
+   - `await page.getByRole('button', {{ name: '+ 添加任务' }}).click();`  // 先触发入口
+   - `await page.getByPlaceholder('任务名称').fill('xxx');`  // 再操作表单
+8. **fill 前先等待元素可见**：对任何 fill/click 操作，若该元素可能不在初始 DOM 中（如弹窗内、动态渲染），必须先用 `await expect(locator).toBeVisible({{ timeout: 10000 }})` 或 `await locator.waitFor({{ state: 'visible', timeout: 10000 }})` 等待元素出现，再执行 fill/click。避免直接 fill 导致 30s 全局超时。
+
+# 输出格式（严格JSON）
+{{
+  "scripts": [
+    {{
+      "case_id": "TC-001",
+      "case_title": "用例标题",
       "module": "module_name",
       "priority": "P0",
-      "precondition": "前置条件描述",
-      "steps": ["步骤1", "步骤2"],
-      "expected": "预期结果描述",
-      "script": "import {{ test, expect }} from '@playwright/test';\\n\\ntest.describe('{app_name}-模块名称', () => {{\\n  test.beforeEach(async ({{ page }}) => {{\\n    await page.goto('{app_url}', {{ waitUntil: 'domcontentloaded' }});\\n  }});\\n  test('用例1', async ({{ page }}) => {{ ... }});\\n  test('用例2', async ({{ page }}) => {{ ... }});\\n}});",
-      "stability_score": 90
+      "script": "import {{ test, expect }} from '@playwright/test';\\n\\ntest.describe('{app_name}-模块', () => {{\\n  test.beforeEach(async ({{ page }}) => {{\\n    await page.goto('{app_url}', {{ waitUntil: 'domcontentloaded' }});\\n  }});\\n  test('用例标题', async ({{ page }}) => {{ ... }});\\n}});",
+      "stability_score": 90,
+      "verification_points": ["验证点"]
+    }}
+  ]
+}}"""
+
+
+# ============================================================
+# Prompt 4：AI 质量评审（v1.1 简化版：综合分 + 3条建议）
+# ============================================================
+
+REVIEW_PROMPT = """你是资深测试架构师，请对以下测试用例进行质量评审。
+
+## 评审维度与权重
+
+1. **需求覆盖度**（40%）：用例是否覆盖了所有功能点的核心场景和流程。
+2. **场景完整性**（30%）：是否包含正向、逆向、边界值、异常场景。
+3. **可执行性**（30%）：操作步骤是否清晰、预期结果是否可验证、断言是否明确。
+
+## 测试用例列表（JSON）
+{cases_json}
+
+## 原始功能点列表（JSON）
+{feature_points_json}
+
+## 输出要求
+
+请返回严格的 JSON，结构如下（不要输出 markdown 代码块标记）：
+
+{{
+  "overall_score": <0-100整数>,
+  "coverage_score": <0-100整数>,
+  "completeness_score": <0-100整数>,
+  "executability_score": <0-100整数>,
+  "summary": "<整体评审摘要，一句话>",
+  "suggestions": [
+    {{
+      "case_title": "<问题所在用例标题>",
+      "case_index": <对应用例在输入列表中的索引，从0开始>,
+      "field_path": ["<建议影响的字段>"],
+      "issue_type": "<问题类型>",
+      "severity": "<严重程度>",
+      "problem": "<问题描述>",
+      "suggestion": "<改进建议>",
+      "sample_patch": {{
+        "<字段名>": "<参考修改内容>"
+      }},
+      "example": "<代码示例（可选）>"
     }}
   ]
 }}
 
-注意：
-- script 字段中的换行使用 \\n，不要使用真实的换行符
-- script 必须是完整可运行的 TypeScript 代码，不带 markdown 代码块标记
-- module 字段使用英文 snake_case（如 page_elements、form_validation、login_navigation）
-- 输出 2-3 个 cases（每个 case 一个模块文件），不要为每个 test 单独输出一个 case
+## 字段说明
 
-# 重要格式要求
-# 1. JSON 字符串值中不要使用未转义的双引号（如 "点击"登录"按钮"）
-# 2. 如果需要引用文案，使用中文书名号「」代替双引号
-# 3. 或者将双引号转义为 \\"
-"""
+- **case_index**：对应用例在输入列表中的索引（从0开始），不要输出用例ID。
+- **field_path**：建议影响的字段名列表，可选值：title、precondition、steps、expected、script。
+- **issue_type**：问题类型，可选值：coverage_gap（覆盖缺失）、boundary_missing（边界缺失）、assertion_weak（断言薄弱）、script_risk（脚本风险）、duplicate_case（用例重复）。
+- **severity**：严重程度，可选值：high、medium、low。
+- **sample_patch**：AI 参考修改示例，按 field_path 中的字段给出建议内容。
 
+## 限制
 
-# ============================================================
-# Prompt 3：AI 质量评审（v1.1 简化版：综合分 + 3条建议）
-# ============================================================
-
-REVIEW_PROMPT = """请对以下测试用例进行质量评审。
-
-# 测试用例
-{cases_json}
-
-# 对应的功能点
-{feature_points_json}
-
-# 评审维度（内部评估，最终输出综合分）
-1. 需求覆盖度（40%）：用例是否覆盖了所有功能点的正常/异常/边界场景
-2. 场景完整性（30%）：是否包含正常流程、异常流程、边界值场景
-3. 可执行性（30%）：脚本语法正确性、选择器稳定性、断言清晰度
-
-# 输出格式（严格 JSON，不要包含 markdown 代码块标记）
-{{
-  "overall_score": 85,
-  "coverage_score": 90,
-  "completeness_score": 80,
-  "executability_score": 85,
-  "suggestions": [
-    {{
-      "case_title": "用例标题",
-      "issue": "问题描述",
-      "suggestion": "改进建议",
-      "example": "代码示例（可选）"
-    }}
-  ],
-  "summary": "整体评审摘要"
-}}
+- suggestions 最多 3 条，按严重程度从高到低排列。
+- 如果用例质量优秀无改进空间，suggestions 返回空数组。
+- score 必须是整数，不要输出小数。
 """
