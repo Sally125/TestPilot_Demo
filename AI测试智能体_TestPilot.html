@@ -619,6 +619,12 @@
       gap: 12px;
       margin-bottom: 10px;
     }
+    .case-table tr.case-detail-row {
+      display: table-row;
+    }
+    .case-table tr.case-detail-row > td {
+      padding: 0;
+    }
     .case-detail-label {
       font-size: 12px;
       color: var(--ink-3);
@@ -649,15 +655,19 @@
     .view-btn:hover { background: var(--bg-hover); }
     .view-btn.active { background: var(--primary); color: white; }
     .pagination {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin-top: 24px;
       padding: 16px;
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-top: 1px solid var(--border);
+      border-radius: 0;
+      z-index: 100;
     }
     .page-btn {
       padding: 6px 16px;
@@ -721,7 +731,7 @@
     }
     .case-detail-panel strong { color: var(--ink-3); margin-right: 4px; }
     .case-detail-panel .code-block { margin-top: 8px; }
-    .case-list-container { margin-bottom: 16px; }
+    .case-list-container { margin-bottom: 80px; }
     .code-block {
       background: #1e1e2e;
       color: #cdd6f4;
@@ -1903,6 +1913,131 @@
                 <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" /> WebKit</label>
               </div>
             </div>
+
+            <!-- ===== 登录态配置（新增）===== -->
+            <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px;">
+              <label class="input-label">登录需求 *</label>
+              <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="pc-login-requirement" value="no" checked onchange="toggleLoginRequirement(false)">
+                  无需登录（测试登录/公开页面）
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="pc-login-requirement" value="yes" onchange="toggleLoginRequirement(true)">
+                  需要登录（测试受保护功能）
+                </label>
+              </div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                测试登录功能本身或公开页面选"无需登录"；测试受保护功能选"需要登录"，需配置登录态以确保脚本生成时能访问真实页面
+              </div>
+            </div>
+
+            <!-- 登录配置区（条件展开） -->
+            <div id="pc-login-config-area" style="display:none;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:8px;background:var(--bg2,#f9fafb);">
+              <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--primary);">登录态配置</div>
+
+              <div class="form-group">
+                <label class="input-label">登录页 URL *</label>
+                <input type="text" class="input-field" id="pc-lp-login-url" placeholder="http://localhost:3001/login" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                  <label class="input-label">账号 *</label>
+                  <input type="text" class="input-field" id="pc-lp-username" placeholder="登录账号" />
+                </div>
+                <div class="form-group">
+                  <label class="input-label">密码 *</label>
+                  <input type="password" class="input-field" id="pc-lp-password" placeholder="登录密码" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="input-label">有效期</label>
+                <select class="input-field" id="pc-lp-valid-days" style="width:120px;">
+                  <option value="1">1 天</option>
+                  <option value="3">3 天</option>
+                  <option value="7" selected>7 天</option>
+                  <option value="15">15 天</option>
+                  <option value="30">30 天</option>
+                  <option value="90">90 天</option>
+                </select>
+              </div>
+
+              <!-- 定位方式切换 -->
+              <div class="form-group">
+                <label class="input-label">定位方式</label>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="pc-lp-mode-form-btn" onclick="switchPcLoginScriptMode('form')" style="background:var(--primary);color:#fff;">表单模式</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="pc-lp-mode-custom-btn" onclick="switchPcLoginScriptMode('custom')">自定义脚本</button>
+                </div>
+                <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                  表单模式：填写选择器，系统自动生成脚本；自定义脚本：直接写 Playwright 代码（易出错，谨慎使用）
+                </div>
+              </div>
+
+              <!-- 表单模式字段 -->
+              <div id="pc-lp-form-mode">
+                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#1565c0;line-height:1.5;">
+                  推荐使用 getByRole('textbox', {{ name: '邮箱' }}) 形式的 locator，最稳定
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="pc-lp-username-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="pc-lp-username-selector" style="width:100%;" value="getByRole('textbox', { name: '邮箱' })" placeholder="用户名输入框选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="pc-lp-password-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="pc-lp-password-selector" style="width:100%;" value="getByRole('textbox', { name: '密码' })" placeholder="密码输入框选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="pc-lp-submit-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="pc-lp-submit-selector" style="width:100%;" value="getByRole('button', { name: '登录' })" placeholder="提交按钮选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="pc-lp-success-indicator-type" style="width:100%;">
+                    <option value="url" selected>URL跳转</option>
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator">Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="pc-lp-success-indicator" style="width:100%;" value="/dashboard" placeholder="登录成功标志（如 /dashboard）">
+                </div>
+              </div>
+
+              <!-- 自定义脚本字段 -->
+              <div id="pc-lp-custom-mode" style="display:none;">
+                <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#e65100;line-height:1.5;">
+                  直接编写 Playwright 登录代码，系统会自动追加 storageState 保存逻辑。可用 page 对象，无需写 test() 包装和 import。
+                </div>
+                <textarea class="input-field" id="pc-lp-custom-script" style="width:100%;min-height:200px;font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.5;" placeholder="// 在此编写 Playwright 登录代码，示例：
+await page.goto('http://localhost:3001/login', { waitUntil: 'networkidle' });
+await page.getByRole('textbox', { name: '邮箱' }).fill('user@example.com');
+await page.getByRole('textbox', { name: '密码' }).fill('pwd123');
+await page.getByRole('button', { name: '登录' }).click();
+await page.waitForURL('**/dashboard**', { timeout: 10000 });"></textarea>
+              </div>
+
+              <!-- 创建后立即生成会话 -->
+              <div class="form-group" style="margin-top:8px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="checkbox" id="pc-lp-generate-now" checked />
+                  创建后立即生成会话（推荐）
+                </label>
+                <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                  勾选后，项目创建完成会自动用 Playwright 执行登录并保存会话快照，后续脚本生成和执行时直接复用
+                </div>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-text" onclick="closeCreateProjectModal()">取消</button>
@@ -1935,6 +2070,129 @@
               <label class="input-label">应用 URL</label>
               <input type="text" class="input-field" id="edit-project-app-url" placeholder="如：https://shop.example.com" />
             </div>
+
+            <!-- ===== 登录态配置（与创建表单一致）===== -->
+            <div class="form-group" style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px;">
+              <label class="input-label">登录需求 *</label>
+              <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="ep-login-requirement" value="no" onchange="toggleEditLoginRequirement(false)">
+                  无需登录（测试登录/公开页面）
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="radio" name="ep-login-requirement" value="yes" onchange="toggleEditLoginRequirement(true)">
+                  需要登录（测试受保护功能）
+                </label>
+              </div>
+              <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                测试登录功能本身或公开页面选"无需登录"；测试受保护功能选"需要登录"，需配置登录态以确保脚本生成时能访问真实页面
+              </div>
+            </div>
+
+            <!-- 登录配置区（条件展开） -->
+            <div id="ep-login-config-area" style="display:none;border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:8px;background:var(--bg2,#f9fafb);">
+              <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--primary);">登录态配置</div>
+
+              <div class="form-group">
+                <label class="input-label">登录页 URL *</label>
+                <input type="text" class="input-field" id="ep-lp-login-url" placeholder="http://localhost:3001/login" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                  <label class="input-label">账号 *</label>
+                  <input type="text" class="input-field" id="ep-lp-username" placeholder="登录账号" />
+                </div>
+                <div class="form-group">
+                  <label class="input-label">密码 *</label>
+                  <input type="password" class="input-field" id="ep-lp-password" placeholder="登录密码" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="input-label">有效期</label>
+                <select class="input-field" id="ep-lp-valid-days" style="width:120px;">
+                  <option value="1">1 天</option>
+                  <option value="3">3 天</option>
+                  <option value="7" selected>7 天</option>
+                  <option value="15">15 天</option>
+                  <option value="30">30 天</option>
+                  <option value="90">90 天</option>
+                </select>
+              </div>
+
+              <!-- 定位方式切换 -->
+              <div class="form-group">
+                <label class="input-label">定位方式</label>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm" id="ep-lp-mode-form-btn" onclick="switchEditLoginScriptMode('form')" style="background:var(--primary);color:#fff;">表单模式</button>
+                  <button type="button" class="btn btn-secondary btn-sm" id="ep-lp-mode-custom-btn" onclick="switchEditLoginScriptMode('custom')">自定义脚本</button>
+                </div>
+                <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                  表单模式：填写选择器，系统自动生成脚本；自定义脚本：直接写 Playwright 代码（易出错，谨慎使用）
+                </div>
+              </div>
+
+              <!-- 表单模式字段 -->
+              <div id="ep-lp-form-mode">
+                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#1565c0;line-height:1.5;">
+                  推荐使用 getByRole('textbox', {{ name: '邮箱' }}) 形式的 locator，最稳定
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="ep-lp-username-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="ep-lp-username-selector" style="width:100%;" value="getByRole('textbox', { name: '邮箱' })" placeholder="用户名输入框选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="ep-lp-password-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="ep-lp-password-selector" style="width:100%;" value="getByRole('textbox', { name: '密码' })" placeholder="密码输入框选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="ep-lp-submit-selector-type" style="width:100%;">
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator" selected>Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="ep-lp-submit-selector" style="width:100%;" value="getByRole('button', { name: '登录' })" placeholder="提交按钮选择器">
+                </div>
+                <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-bottom:8px;">
+                  <select class="input-field" id="ep-lp-success-indicator-type" style="width:100%;">
+                    <option value="url" selected>URL跳转</option>
+                    <option value="css">CSS选择器</option>
+                    <option value="placeholder">placeholder文本</option>
+                    <option value="locator">Playwright locator</option>
+                  </select>
+                  <input type="text" class="input-field" id="ep-lp-success-indicator" style="width:100%;" value="/dashboard" placeholder="登录成功标志（如 /dashboard）">
+                </div>
+              </div>
+
+              <!-- 自定义脚本字段 -->
+              <div id="ep-lp-custom-mode" style="display:none;">
+                <div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#e65100;line-height:1.5;">
+                  直接编写 Playwright 登录代码，系统会自动追加 storageState 保存逻辑。可用 page 对象，无需写 test() 包装和 import。
+                </div>
+                <textarea class="input-field" id="ep-lp-custom-script" style="width:100%;min-height:200px;font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.5;" placeholder="// 在此编写 Playwright 登录代码"></textarea>
+              </div>
+
+              <!-- 登录态状态提示 -->
+              <div id="ep-lp-status-tip" style="margin-top:8px;font-size:11px;color:var(--ink-3);"></div>
+
+              <!-- 保存后立即生成会话 -->
+              <div class="form-group" style="margin-top:8px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+                  <input type="checkbox" id="ep-lp-generate-now" />
+                  保存后立即（重新）生成会话
+                </label>
+                <div style="font-size:11px;color:var(--ink-3);margin-top:4px;">
+                  勾选后，保存修改时会自动用 Playwright 执行登录并保存会话快照
+                </div>
+              </div>
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-text" onclick="closeEditProjectModal()">取消</button>
@@ -1961,10 +2219,15 @@
     `;
     loadingDiv.innerHTML = `
       <div style="width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px;"></div>
-      <div style="font-size:14px;color:var(--ink-2);font-weight:500;">${message}</div>
+      <div id="loading-message" style="font-size:14px;color:var(--ink-2);font-weight:500;">${message}</div>
       <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     `;
     document.body.appendChild(loadingDiv);
+  }
+
+  function updateLoadingMessage(message) {
+    const el = document.getElementById('loading-message');
+    if (el) el.textContent = message;
   }
 
   function hideLoading() {
@@ -2015,6 +2278,7 @@
     const hasPrev = idx > 0;
     const hasNext = idx < screenshots.length - 1;
     
+    const safeScreenshots = JSON.stringify(screenshots).replace(/'/g, "\\'");
     modal.innerHTML = `
       <div style="background:white;border-radius:12px;max-width:90%;max-height:90%;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div style="padding:12px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
@@ -2022,16 +2286,16 @@
           <button onclick="this.closest('div').parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:20px;color:#999;">×</button>
         </div>
         <div style="padding:16px;display:flex;align-items:center;gap:16px;">
-          <button onclick="showScreenshot(null, ${JSON.stringify(screenshots)}, ${idx - 1})" 
+          <button onclick='showScreenshot(null, ${safeScreenshots}, ${idx - 1})' 
                   style="background:none;border:none;cursor:pointer;font-size:24px;color:#666;${!hasPrev ? 'opacity:0.3;cursor:not-allowed;' : ''}" 
                   ${!hasPrev ? 'disabled' : ''}>‹</button>
           <img src="${buildScreenshotUrl(screenshots[idx])}" alt="测试截图" style="max-width:100%;max-height:70vh;display:block;border-radius:8px;">
-          <button onclick="showScreenshot(null, ${JSON.stringify(screenshots)}, ${idx + 1})" 
+          <button onclick='showScreenshot(null, ${safeScreenshots}, ${idx + 1})' 
                   style="background:none;border:none;cursor:pointer;font-size:24px;color:#666;${!hasNext ? 'opacity:0.3;cursor:not-allowed;' : ''}" 
                   ${!hasNext ? 'disabled' : ''}>›</button>
         </div>
         <div style="padding:8px 16px;border-top:1px solid #eee;display:flex;gap:8px;flex-wrap:wrap;">
-          ${screenshots.map((s, i) => `<button onclick="showScreenshot(null, ${JSON.stringify(screenshots)}, ${i})" 
+          ${screenshots.map((s, i) => `<button onclick='showScreenshot(null, ${safeScreenshots}, ${i})' 
                     style="padding:4px 8px;border:1px solid ${i === idx ? 'var(--primary)' : '#ddd'};border-radius:4px;font-size:12px;cursor:pointer;background:${i === idx ? 'var(--primary)' : 'white'};color:${i === idx ? 'white' : '#333'};">${i + 1}</button>`).join('')}
         </div>
       </div>
@@ -2095,6 +2359,7 @@
   let selectedReportIdx = -1;      // 当前选中的报告索引（-1 表示选最新）
   let confirmedLoginProfile = null;      // 当前已确认使用的登录态
   let loginProfilesLoaded = false;      // 登录态列表是否已加载
+  let recentlyGeneratedCaseIds = [];    // 最近生成的测试用例ID列表，用于跳转后自动勾选
 
   function initDefaultProjectData() {
     projectData = [
@@ -2183,6 +2448,7 @@
     // 切换项目时重置登录态确认状态（强制重新确认）
     confirmedLoginProfile = null;
     loginProfilesLoaded = false;
+    loginProfilesCache = [];
     // 预加载该项目登录态列表
     if (projData && projData.id) {
       loadLoginProfiles().catch(() => {});
@@ -2230,6 +2496,13 @@
       if (pageId === 'testcases' && typeof ReviewEdit !== 'undefined') {
         ReviewEdit.checkDeepLink();
       }
+      
+      // 自动勾选并定位到最近生成的测试用例
+      if (pageId === 'testcases' && recentlyGeneratedCaseIds.length > 0) {
+        setTimeout(() => {
+          selectAndScrollToGeneratedCases();
+        }, 300);
+      }
     } else {
       document.getElementById('proj-selector')?.classList.add('hidden');
     }
@@ -2238,6 +2511,37 @@
     if (projSelector) {
       projSelector.style.display = projectPages.includes(pageId) ? 'flex' : 'none';
     }
+  }
+
+  function selectAndScrollToGeneratedCases() {
+    const data = projectData[currentProjectIdx];
+    if (!data.testcases || !data.testcases.cases) return;
+    
+    let firstCaseElement = null;
+    
+    data.testcases.cases.forEach(c => {
+      if (recentlyGeneratedCaseIds.includes(c.id)) {
+        c.checked = true;
+        
+        const checkbox = document.querySelector(`input[type="checkbox"][onchange="toggleCaseCheck(${c._id})"]`);
+        if (checkbox) {
+          checkbox.checked = true;
+          if (!firstCaseElement) {
+            firstCaseElement = checkbox.closest('.case-card') || checkbox.closest('tr') || checkbox.closest('.exec-item');
+          }
+        }
+      }
+    });
+    
+    if (firstCaseElement) {
+      firstCaseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstCaseElement.style.border = '2px solid var(--primary)';
+      setTimeout(() => {
+        firstCaseElement.style.border = '';
+      }, 2000);
+    }
+    
+    recentlyGeneratedCaseIds = [];
   }
 
   navItems.forEach(item => {
@@ -2255,6 +2559,70 @@
 
   function closeCreateProjectModal() {
     document.getElementById('create-project-modal').classList.remove('show');
+    // 重置登录需求为"无需登录"，避免下次打开残留
+    const noRadio = document.querySelector('input[name="pc-login-requirement"][value="no"]');
+    if (noRadio) {
+      noRadio.checked = true;
+      toggleLoginRequirement(false);
+    }
+  }
+
+  // ===== 登录需求单选切换（项目创建表单）=====
+  function toggleLoginRequirement(needsLogin) {
+    const area = document.getElementById('pc-login-config-area');
+    if (area) area.style.display = needsLogin ? 'block' : 'none';
+  }
+
+  // 项目创建表单：登录定位方式切换（表单/自定义脚本）
+  function switchPcLoginScriptMode(mode) {
+    const formBtn = document.getElementById('pc-lp-mode-form-btn');
+    const customBtn = document.getElementById('pc-lp-mode-custom-btn');
+    const formDiv = document.getElementById('pc-lp-form-mode');
+    const customDiv = document.getElementById('pc-lp-custom-mode');
+    if (!formBtn || !customBtn) return;
+    if (mode === 'custom') {
+      customBtn.style.background = 'var(--primary)';
+      customBtn.style.color = '#fff';
+      formBtn.style.background = 'transparent';
+      formBtn.style.color = 'var(--ink-2)';
+      if (customDiv) customDiv.style.display = 'block';
+      if (formDiv) formDiv.style.display = 'none';
+    } else {
+      formBtn.style.background = 'var(--primary)';
+      formBtn.style.color = '#fff';
+      customBtn.style.background = 'transparent';
+      customBtn.style.color = 'var(--ink-2)';
+      if (formDiv) formDiv.style.display = 'block';
+      if (customDiv) customDiv.style.display = 'none';
+    }
+  }
+
+  // 收集项目创建表单的登录配置数据
+  function collectProjectLoginConfig() {
+    const customDiv = document.getElementById('pc-lp-custom-mode');
+    const scriptMode = (customDiv && customDiv.style.display === 'block') ? 'custom' : 'form';
+    return {
+      name: '默认登录态',
+      role: 'default',
+      username: (document.getElementById('pc-lp-username') || {}).value?.trim() || '',
+      password: (document.getElementById('pc-lp-password') || {}).value?.trim() || '',
+      loginUrl: (document.getElementById('pc-lp-login-url') || {}).value?.trim() || '',
+      validDays: parseInt((document.getElementById('pc-lp-valid-days') || {}).value, 10) || 7,
+      isDefault: true,
+      // 表单模式字段
+      usernameSelector: (document.getElementById('pc-lp-username-selector') || {}).value?.trim() || null,
+      usernameSelectorType: (document.getElementById('pc-lp-username-selector-type') || {}).value || 'locator',
+      passwordSelector: (document.getElementById('pc-lp-password-selector') || {}).value?.trim() || null,
+      passwordSelectorType: (document.getElementById('pc-lp-password-selector-type') || {}).value || 'locator',
+      submitSelector: (document.getElementById('pc-lp-submit-selector') || {}).value?.trim() || null,
+      submitSelectorType: (document.getElementById('pc-lp-submit-selector-type') || {}).value || 'locator',
+      successIndicator: (document.getElementById('pc-lp-success-indicator') || {}).value?.trim() || null,
+      successIndicatorType: (document.getElementById('pc-lp-success-indicator-type') || {}).value || 'url',
+      // 自定义脚本模式字段
+      scriptMode: scriptMode,
+      customScript: scriptMode === 'custom' && document.getElementById('pc-lp-custom-script')
+        ? document.getElementById('pc-lp-custom-script').value.trim() : null,
+    };
   }
 
   function toggleDimension(el) {
@@ -2277,10 +2645,63 @@
     const selectedDims = document.querySelectorAll('.dimension-option.selected');
     const dim = Array.from(selectedDims).map(d => d.dataset.dim).join('+');
 
+    // ===== 登录需求（防线1：表单强校验）=====
+    const needsLoginRadio = document.querySelector('input[name="pc-login-requirement"]:checked');
+    const needsLogin = needsLoginRadio ? needsLoginRadio.value === 'yes' : false;
+    let loginConfig = null;
+    if (needsLogin) {
+      const loginUrl = (document.getElementById('pc-lp-login-url') || {}).value?.trim() || '';
+      const username = (document.getElementById('pc-lp-username') || {}).value?.trim() || '';
+      const password = (document.getElementById('pc-lp-password') || {}).value?.trim() || '';
+      if (!loginUrl || !username || !password) {
+        showToast('选择"需要登录"后，登录页URL、账号、密码为必填项', 'warning');
+        return;
+      }
+      loginConfig = collectProjectLoginConfig();
+    }
+
+    const generateSessionNow = document.getElementById('pc-lp-generate-now')?.checked ?? false;
+
     showLoading('创建项目中...');
     try {
-      const created = await TestPilotAPI.createProject({ name, description: desc, appUrl, dim });
-      
+      // 1. 创建项目（携带 requiresLogin）
+      const created = await TestPilotAPI.createProject({
+        name, description: desc, appUrl, dim,
+        requiresLogin: needsLogin ? 1 : 0
+      });
+
+      // 2. 需要登录时，链式创建登录态 + 生成会话
+      if (needsLogin && loginConfig) {
+        showLoading('创建登录态配置中...');
+        let profile = null;
+        try {
+          profile = await TestPilotAPI.createLoginProfile(created.id, loginConfig);
+        } catch (e) {
+          showToast(`项目已创建，但登录态配置创建失败：${e.message}`, 'warning');
+        }
+
+        if (profile && generateSessionNow) {
+          hideLoading();
+          showLoading('正在生成登录会话（Playwright 自动登录，约10-30秒）...');
+          try {
+            await TestPilotAPI.generateLoginSession(profile.id);
+            showToast('项目创建成功，登录会话已生成', 'success');
+          } catch (e) {
+            const ok = window.confirm(`会话生成失败：\n\n${e.message}\n\n是否现在去配置登录态选择器？`);
+            if (ok) {
+              setTimeout(() => {
+                try { showLoginConfig(); } catch (_) {}
+              }, 500);
+            }
+            showToast('项目已创建，但会话生成失败。请在「登录态配置」中检查选择器设置。', 'warning');
+          }
+        } else if (profile) {
+          showToast('项目创建成功，请稍后在「登录态配置」中生成会话', 'success');
+        }
+      } else {
+        showToast('项目创建成功');
+      }
+
       const colors = ['#1456F0', '#7B61FF', '#34C724', '#FF8800', '#00B8D9', '#8B5CF6', '#F54A45', '#10B981'];
       const firstChar = name.charAt(0);
       const icon = firstChar.match(/[\u4e00-\u9fa5]/) ? firstChar : '项';
@@ -2294,6 +2715,7 @@
         icon,
         appUrl,
         description: desc,
+        requiresLogin: needsLogin ? 1 : 0,
         feishuDoc: '',
         feishuUrl: '',
         reqText: '',
@@ -2312,7 +2734,6 @@
       closeCreateProjectModal();
       refreshProjectContent();
       switchPage('requirement');
-      showToast('项目创建成功');
     } catch (error) {
       showToast('创建失败: ' + error.message, 'danger');
     } finally {
@@ -2327,11 +2748,166 @@
     document.getElementById('edit-project-name-input').value = data.name;
     document.getElementById('edit-project-desc-input').value = data.description || '';
     document.getElementById('edit-project-app-url').value = data.appUrl || '';
+
+    // 回填登录需求单选
+    const requiresLogin = data.requiresLogin === undefined ? 1 : data.requiresLogin;
+    const yesRadio = document.querySelector('input[name="ep-login-requirement"][value="yes"]');
+    const noRadio = document.querySelector('input[name="ep-login-requirement"][value="no"]');
+    if (requiresLogin === 1) {
+      if (yesRadio) yesRadio.checked = true;
+      toggleEditLoginRequirement(true);
+    } else {
+      if (noRadio) noRadio.checked = true;
+      toggleEditLoginRequirement(false);
+    }
+
+    // 默认勾选"保存后生成会话"为否（避免每次编辑都重新登录）
+    const genNow = document.getElementById('ep-lp-generate-now');
+    if (genNow) genNow.checked = false;
+
+    // 异步加载已有登录态配置回填
+    loadEditLoginProfile(data.id);
+
     document.getElementById('edit-project-modal').classList.add('show');
+  }
+
+  // 异步加载项目已有登录态配置，回填到编辑表单
+  async function loadEditLoginProfile(projectId) {
+    // 重置表单为默认值
+    setEditLoginFormDefaults();
+
+    if (!projectId) return;
+    const tipEl = document.getElementById('ep-lp-status-tip');
+    if (tipEl) tipEl.textContent = '正在加载已有登录态配置...';
+
+    try {
+      const detail = await TestPilotAPI.getProject(projectId);
+      const status = detail.loginStateStatus || {};
+      // 尝试取默认 profile 详情
+      const defaultProfileId = status.defaultProfileId;
+      if (defaultProfileId) {
+        const profiles = await TestPilotAPI.getLoginProfiles(projectId);
+        const profile = (profiles || []).find(p => p.id === defaultProfileId)
+          || (profiles || []).find(p => p.isDefault)
+          || (profiles || [])[0];
+        if (profile) {
+          fillEditLoginForm(profile);
+        }
+      }
+      if (tipEl) {
+        if (status.hasSession && !status.sessionExpired) {
+          tipEl.innerHTML = '<span style="color:#2e7d32;">✓ 当前会话有效</span>';
+        } else if (status.hasSession && status.sessionExpired) {
+          tipEl.innerHTML = '<span style="color:#d32f2f;">⚠ 会话已过期，建议重新生成</span>';
+        } else if (status.hasProfile) {
+          tipEl.innerHTML = '<span style="color:#e65100;">已配置但未生成会话，建议勾选下方"保存后生成会话"</span>';
+        } else {
+          tipEl.textContent = '';
+        }
+      }
+    } catch (e) {
+      if (tipEl) tipEl.textContent = '';
+    }
+  }
+
+  // 用 profile 数据填充编辑表单
+  function fillEditLoginForm(p) {
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val !== null && val !== undefined) el.value = val; };
+    const setSel = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+    setVal('ep-lp-login-url', p.loginUrl);
+    setVal('ep-lp-username', p.username);
+    setVal('ep-lp-password', p.password);
+    setSel('ep-lp-valid-days', p.validDays);
+    setSel('ep-lp-username-selector-type', p.usernameSelectorType);
+    setVal('ep-lp-username-selector', p.usernameSelector);
+    setSel('ep-lp-password-selector-type', p.passwordSelectorType);
+    setVal('ep-lp-password-selector', p.passwordSelector);
+    setSel('ep-lp-submit-selector-type', p.submitSelectorType);
+    setVal('ep-lp-submit-selector', p.submitSelector);
+    setSel('ep-lp-success-indicator-type', p.successIndicatorType);
+    setVal('ep-lp-success-indicator', p.successIndicator);
+    setVal('ep-lp-custom-script', p.customScript);
+    // 切换模式
+    switchEditLoginScriptMode(p.scriptMode || 'form');
+  }
+
+  // 编辑表单默认值
+  function setEditLoginFormDefaults() {
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    setVal('ep-lp-login-url', '');
+    setVal('ep-lp-username', '');
+    setVal('ep-lp-password', '');
+    setVal('ep-lp-valid-days', '7');
+    setVal('ep-lp-username-selector-type', 'locator');
+    setVal('ep-lp-username-selector', "getByRole('textbox', { name: '邮箱' })");
+    setVal('ep-lp-password-selector-type', 'locator');
+    setVal('ep-lp-password-selector', "getByRole('textbox', { name: '密码' })");
+    setVal('ep-lp-submit-selector-type', 'locator');
+    setVal('ep-lp-submit-selector', "getByRole('button', { name: '登录' })");
+    setVal('ep-lp-success-indicator-type', 'url');
+    setVal('ep-lp-success-indicator', '/dashboard');
+    setVal('ep-lp-custom-script', '');
+    switchEditLoginScriptMode('form');
   }
 
   function closeEditProjectModal() {
     document.getElementById('edit-project-modal').classList.remove('show');
+  }
+
+  // 编辑表单：登录需求切换
+  function toggleEditLoginRequirement(needsLogin) {
+    const area = document.getElementById('ep-login-config-area');
+    if (area) area.style.display = needsLogin ? 'block' : 'none';
+  }
+
+  // 编辑表单：定位方式切换
+  function switchEditLoginScriptMode(mode) {
+    const formBtn = document.getElementById('ep-lp-mode-form-btn');
+    const customBtn = document.getElementById('ep-lp-mode-custom-btn');
+    const formDiv = document.getElementById('ep-lp-form-mode');
+    const customDiv = document.getElementById('ep-lp-custom-mode');
+    if (!formBtn || !customBtn) return;
+    if (mode === 'custom') {
+      customBtn.style.background = 'var(--primary)';
+      customBtn.style.color = '#fff';
+      formBtn.style.background = 'transparent';
+      formBtn.style.color = 'var(--ink-2)';
+      if (customDiv) customDiv.style.display = 'block';
+      if (formDiv) formDiv.style.display = 'none';
+    } else {
+      formBtn.style.background = 'var(--primary)';
+      formBtn.style.color = '#fff';
+      customBtn.style.background = 'transparent';
+      customBtn.style.color = 'var(--ink-2)';
+      if (formDiv) formDiv.style.display = 'block';
+      if (customDiv) customDiv.style.display = 'none';
+    }
+  }
+
+  // 收集编辑表单的登录配置数据
+  function collectEditLoginConfig() {
+    const customDiv = document.getElementById('ep-lp-custom-mode');
+    const scriptMode = (customDiv && customDiv.style.display === 'block') ? 'custom' : 'form';
+    return {
+      name: '默认登录态',
+      role: 'default',
+      username: (document.getElementById('ep-lp-username') || {}).value?.trim() || '',
+      password: (document.getElementById('ep-lp-password') || {}).value?.trim() || '',
+      loginUrl: (document.getElementById('ep-lp-login-url') || {}).value?.trim() || '',
+      validDays: parseInt((document.getElementById('ep-lp-valid-days') || {}).value, 10) || 7,
+      isDefault: true,
+      usernameSelector: (document.getElementById('ep-lp-username-selector') || {}).value?.trim() || null,
+      usernameSelectorType: (document.getElementById('ep-lp-username-selector-type') || {}).value || 'locator',
+      passwordSelector: (document.getElementById('ep-lp-password-selector') || {}).value?.trim() || null,
+      passwordSelectorType: (document.getElementById('ep-lp-password-selector-type') || {}).value || 'locator',
+      submitSelector: (document.getElementById('ep-lp-submit-selector') || {}).value?.trim() || null,
+      submitSelectorType: (document.getElementById('ep-lp-submit-selector-type') || {}).value || 'locator',
+      successIndicator: (document.getElementById('ep-lp-success-indicator') || {}).value?.trim() || null,
+      successIndicatorType: (document.getElementById('ep-lp-success-indicator-type') || {}).value || 'url',
+      scriptMode: scriptMode,
+      customScript: scriptMode === 'custom' && document.getElementById('ep-lp-custom-script')
+        ? document.getElementById('ep-lp-custom-script').value.trim() : null,
+    };
   }
 
   async function handleEditProject() {
@@ -2346,18 +2922,81 @@
     const appUrl = document.getElementById('edit-project-app-url').value.trim();
     const projectId = projectData[idx].id;
 
+    // 登录需求
+    const needsLoginRadio = document.querySelector('input[name="ep-login-requirement"]:checked');
+    const needsLogin = needsLoginRadio ? needsLoginRadio.value === 'yes' : false;
+    let loginConfig = null;
+    if (needsLogin) {
+      const loginUrl = (document.getElementById('ep-lp-login-url') || {}).value?.trim() || '';
+      const username = (document.getElementById('ep-lp-username') || {}).value?.trim() || '';
+      const password = (document.getElementById('ep-lp-password') || {}).value?.trim() || '';
+      if (!loginUrl || !username || !password) {
+        showToast('选择"需要登录"后，登录页URL、账号、密码为必填项', 'warning');
+        return;
+      }
+      loginConfig = collectEditLoginConfig();
+    }
+    const generateSessionNow = document.getElementById('ep-lp-generate-now')?.checked ?? false;
+
     showLoading('保存修改中...');
     try {
-      await TestPilotAPI.updateProject(projectId, { name, description: desc, appUrl });
-      
+      // 1. 更新项目基本信息 + requiresLogin
+      await TestPilotAPI.updateProject(projectId, {
+        name, description: desc, appUrl,
+        requiresLogin: needsLogin ? 1 : 0
+      });
       projectData[idx].name = name;
       projectData[idx].description = desc;
       projectData[idx].appUrl = appUrl;
+      projectData[idx].requiresLogin = needsLogin ? 1 : 0;
+
+      // 2. 需要登录时，更新或创建登录态配置
+      if (needsLogin && loginConfig) {
+        hideLoading();
+        showLoading('更新登录态配置中...');
+        let profileId = null;
+        try {
+          const profiles = await TestPilotAPI.getLoginProfiles(projectId);
+          const existing = (profiles || []).find(p => p.isDefault) || (profiles || [])[0];
+          if (existing) {
+            // 更新已有 profile
+            await TestPilotAPI.updateLoginProfile(existing.id, loginConfig);
+            profileId = existing.id;
+          } else {
+            // 新建 profile
+            const created = await TestPilotAPI.createLoginProfile(projectId, loginConfig);
+            profileId = created.id;
+          }
+        } catch (e) {
+          showToast(`项目信息已保存，但登录态配置更新失败：${e.message}`, 'warning');
+        }
+
+        // 3. 按需生成会话
+        if (profileId && generateSessionNow) {
+          hideLoading();
+          showLoading('正在（重新）生成登录会话...');
+          try {
+            await TestPilotAPI.generateLoginSession(profileId);
+            showToast('修改保存成功，登录会话已更新', 'success');
+          } catch (e) {
+            const ok = window.confirm(`会话生成失败：\n\n${e.message}\n\n是否现在去配置登录态选择器？`);
+            if (ok) {
+              setTimeout(() => {
+                try { showLoginConfig(); } catch (_) {}
+              }, 500);
+            }
+            showToast(`修改已保存，但会话生成失败。请在「登录态配置」中检查选择器设置。`, 'warning');
+          }
+        } else {
+          showToast('修改保存成功', 'success');
+        }
+      } else {
+        showToast('修改保存成功');
+      }
 
       closeEditProjectModal();
       refreshProjectContent();
       refreshBreadcrumb();
-      showToast('修改保存成功');
     } catch (error) {
       showToast('保存失败: ' + error.message, 'danger');
     } finally {
@@ -2642,7 +3281,9 @@
     const cases = tc.cases || [];
     const filters = tc.filters || { module: '', priority: '', status: '', keyword: '', viewMode: 'card' };
     
-    const totalPages = Math.ceil(tc.total / (tc.pageSize || 20));
+    const totalCases = tc.allCases ? tc.allCases.length : (tc.total || 0);
+    const totalPages = Math.max(1, Math.ceil(totalCases / (tc.pageSize || 10)));
+    if (tc.page > totalPages) tc.page = totalPages;
     
     return `
       <div class="page-header">
@@ -2652,7 +3293,7 @@
         </div>
         <div class="page-actions">
           <button class="btn btn-secondary" onclick="handleBatchExport()">批量导出</button>
-          <button class="btn btn-secondary" onclick="handleBatchDelete()" style="color:var(--danger);">批量删除</button>
+          <button class="btn btn-secondary" onclick="handleBatchDelete()" style="color:var(--danger);">删除已勾选用例</button>
           <button class="btn btn-primary" onclick="handleCheckStability()">稳定性检查</button>
         </div>
       </div>
@@ -2680,23 +3321,14 @@
         </select>
         
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <div class="view-toggle">
-            <button class="view-btn ${filters.viewMode === 'card' ? 'active' : ''}" onclick="handleViewMode('card')" title="卡片视图">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/></svg>
-            </button>
-            <button class="view-btn ${filters.viewMode === 'list' ? 'active' : ''}" onclick="handleViewMode('list')" title="列表视图">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            </button>
-          </div>
           <button class="btn btn-primary btn-sm" onclick="handleExecuteTests()">执行选中用例</button>
         </div>
       </div>
       
       <div class="case-list-container">
-        ${filters.viewMode === 'list' ? renderTestCaseList(cases) : renderTestCaseCards(cases)}
+        ${renderTestCaseList(cases, tc.page || 1, tc.pageSize || 10)}
       </div>
       
-      ${totalPages > 1 ? `
       <div class="pagination">
         <label class="select-all-label" style="display:flex;align-items:center;gap:4px;margin-right:12px;">
           <input type="checkbox" class="checkbox" ${cases.length > 0 && cases.every(c => c.checked) ? 'checked' : ''} onchange="toggleAllCases(this.checked)">
@@ -2720,7 +3352,7 @@
         </div>
         <button class="page-btn" onclick="handlePageChange(${Math.min(totalPages, tc.page + 1)})" ${tc.page >= totalPages ? 'disabled' : ''}>下一页</button>
         <div class="page-info">第 ${tc.page} 页 / 共 ${totalPages} 页</div>
-      </div>` : ''}
+      </div>
     `;
   }
 
@@ -2752,6 +3384,32 @@
         </div>` : ''}
       </div>`;
     }).join('');
+  }
+
+  // 获取用例状态中文文本
+  function getCaseStatusText(status) {
+    const statusMap = {
+      'pending': '待评审',
+      'passed': '已通过',
+      'failed': '需修改',
+      'review_passed': '已通过',
+      'needs_modification': '需修改',
+      'modified_pending_review': '已修改待复审'
+    };
+    return statusMap[status] || status || '待评审';
+  }
+
+  // 获取用例状态标签样式
+  function getCaseStatusTag(status) {
+    const tagMap = {
+      'pending': 'warning',
+      'passed': 'success',
+      'failed': 'danger',
+      'review_passed': 'success',
+      'needs_modification': 'danger',
+      'modified_pending_review': 'warning'
+    };
+    return tagMap[status] || 'warning';
   }
 
   // 获取用例登录态标签（用于卡片/列表显示）
@@ -2856,7 +3514,7 @@
     }
   }
 
-  function renderTestCaseList(cases) {
+  function renderTestCaseList(cases, page = 1, pageSize = 10) {
     if (!cases || cases.length === 0) {
       return '<div style="text-align:center;padding:40px;color:var(--ink-3);"><div style="font-size:48px;margin-bottom:16px;">📋</div><div>暂无测试用例</div><div style="font-size:12px;margin-top:4px;">完成AI需求分析后自动生成测试用例</div></div>';
     }
@@ -2865,8 +3523,9 @@
         <table class="case-table">
           <thead>
             <tr>
-              <th>用例ID</th>
-              <th>标题</th>
+              <th></th>
+              <th>ID</th>
+              <th>用例标题</th>
               <th>模块</th>
               <th>登录态</th>
               <th>优先级</th>
@@ -2876,10 +3535,10 @@
             </tr>
           </thead>
           <tbody>
-            ${cases.map(c => `
+            ${cases.map((c, idx) => `
               <tr>
                 <td><input type="checkbox" class="checkbox" ${c.checked ? 'checked' : ''} onchange="toggleCaseCheck(${c._id})"></td>
-                <td>${c.id || c._id}</td>
+                <td>${(page - 1) * pageSize + idx + 1}</td>
                 <td class="case-title-cell" onclick="toggleCaseExpand(${c._id})">${c.title}</td>
                 <td><span class="tag tag-gray">${c.module || '未分类'}</span></td>
                 <td>${getCaseLoginTag(c)}</td>
@@ -2887,7 +3546,10 @@
                 <td><span class="tag tag-${c.scoreTag || 'gray'}">${c.score || 0}</span></td>
                 <td><span class="tag tag-${c.statusTag || 'warning'}">${c.status || '待评审'}</span></td>
                 <td>
-                  <button class="btn btn-text btn-sm" onclick="toggleCaseExpand(${c._id})">详情</button>
+                  <button class="btn btn-text btn-sm" onclick="toggleCaseExpand(${c._id})" title="查看详情">详情</button>
+                  <button class="btn btn-text btn-sm" onclick="toggleScriptExpand(${c._id})" title="查看/编辑脚本" style="padding:2px 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" style="transition:transform .2s;transform:${c.scriptExpanded ? 'rotate(180deg)' : 'none'};"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
                   <button class="btn btn-text btn-sm" onclick="showCaseLoginEditor(${c._dbId})">登录态</button>
                   <button class="btn btn-text btn-sm" onclick="handleDeleteTestCase(${c._id})">删除</button>
                 </td>
@@ -2900,7 +3562,29 @@
                     ${Array.isArray(c.steps) && c.steps.length > 0 ? `<div><strong>操作步骤：</strong>${c.steps.map((s, idx) => `${idx + 1}. ${s}`).join('<br>')}</div>` : ''}
                     ${c.expected ? `<div><strong>预期结果：</strong>${c.expected}</div>` : ''}
                     <div><strong>登录态：</strong>${getCaseLoginDesc(c)}</div>
-                    ${c.script ? `<div><strong>脚本：</strong><div class="code-block">${escapeHtml(c.script)}</div></div>` : ''}
+                  </div>
+                </td>
+              </tr>` : ''}
+              ${c.scriptExpanded ? `
+              <tr class="case-detail-row">
+                <td colspan="9">
+                  <div class="case-detail-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                      <strong>Playwright 脚本</strong>
+                      <div style="display:flex;gap:6px;">
+                        ${c.scriptEditing ? `
+                          <button class="btn btn-primary btn-sm" onclick="saveCaseScript(${c._id})">保存</button>
+                          <button class="btn btn-secondary btn-sm" onclick="cancelEditCaseScript(${c._id})">取消</button>
+                        ` : `
+                          <button class="btn btn-text btn-sm" onclick="startEditCaseScript(${c._id})" style="color:var(--primary);font-weight:600;">编辑</button>
+                        `}
+                      </div>
+                    </div>
+                    ${c.scriptEditing ? `
+                      <textarea id="case-script-editor-${c._id}" class="input-field" style="width:100%;min-height:320px;font-family:var(--font-mono);font-size:12px;white-space:pre;resize:vertical;" placeholder="暂无脚本，请输入 Playwright 脚本...">${escapeHtml(c.script || '')}</textarea>
+                    ` : `
+                      <div class="code-block" style="max-height:400px;overflow:auto;">${c.script ? escapeHtml(c.script) : '<span style="color:var(--ink-3);font-style:italic;">暂无脚本</span>'}</div>
+                    `}
                   </div>
                 </td>
               </tr>` : ''}
@@ -3031,7 +3715,7 @@
                   <span class="tag tag-${item.statusTag || 'gray'}">${item.statusText || '等待'}</span>
                   ${item.duration ? `<span style="font-size:11px;color:var(--ink-3);">${item.duration}</span>` : ''}
                   ${item.screenshots && item.screenshots.length > 0 ? `
-                  <button onclick="showScreenshot(null, ${JSON.stringify(item.screenshots)}, 0)" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--primary);" title="查看截图">
+                  <button onclick='showScreenshot(null, ${JSON.stringify(item.screenshots).replace(/'/g, "\\'")}, 0)' style="background:none;border:none;cursor:pointer;padding:4px;color:var(--primary);" title="查看截图">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                   </button>` : ''}
                 </div>`).join('')}
@@ -3055,7 +3739,7 @@
                   ${f.screenshots && f.screenshots.length > 0 ? `
                   <div style="margin-bottom:8px;">
                     <div style="font-size:12px;font-weight:600;color:var(--ink-1);margin-bottom:4px;">自动截图：</div>
-                    <img src="${buildScreenshotUrl(f.screenshots[0])}" alt="失败截图" style="max-width:100%;max-height:300px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;" onclick="showScreenshot(null, ${JSON.stringify(f.screenshots)}, 0)">
+                    <img src="${buildScreenshotUrl(f.screenshots[0])}" alt="失败截图" style="max-width:100%;max-height:300px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;" onclick='showScreenshot(null, ${JSON.stringify(f.screenshots).replace(/'/g, "\\'")}, 0)'>
                   </div>` : ''}
                 </div>`).join('')}
             </div>
@@ -3235,10 +3919,7 @@
               <div class="panel-header"><span class="panel-title">通过率分布</span></div>
               <div class="panel-body" style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;padding:20px;">
                 <div style="width:160px;height:160px;border-radius:50%;background:conic-gradient(var(--success) 0% ${passRateNum}%, var(--danger) ${passRateNum}% ${100 - Math.min(passRateNum, 100)}%, var(--ink-3) ${100 - Math.min(passRateNum, 100)}% 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                  <div style="width:100px;height:100px;border-radius:50%;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                    <div style="font-size:24px;font-weight:700;color:var(--success);">${current.passRate}</div>
-                    <div style="font-size:11px;color:var(--ink-3);">通过率</div>
-                  </div>
+                  <div style="width:100px;height:100px;border-radius:50%;background:var(--bg2);"></div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;">
                   <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
@@ -4424,7 +5105,7 @@ const TestPilotAPI = {
       console.log('[DEBUG] designTestcases API - featurePoints count:', featurePoints.length);
       console.log('[DEBUG] designTestcases API - featurePoints sample:', JSON.stringify(featurePoints[0])?.substring(0, 500));
       
-      const res = await fetch(`${API_BASE}/design-testcases`, {
+      const res = await fetch(`${API_BASE}/design-testcases/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feature_points: featurePoints }),
@@ -4432,7 +5113,6 @@ const TestPilotAPI = {
       });
       
       console.log('[DEBUG] designTestcases API - status:', res.status);
-      console.log('[DEBUG] designTestcases API - ok:', res.ok);
       
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: '请求失败' }));
@@ -4440,7 +5120,41 @@ const TestPilotAPI = {
         throw new Error(extractErrorMessage(err, ''));
       }
       
-      const result = await res.json();
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let result = null;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            let data;
+            try {
+              data = JSON.parse(line.substring(6));
+            } catch (parseErr) {
+              console.log('[DEBUG] designTestcases API - parse error:', parseErr);
+              continue;
+            }
+            if (data.type === 'complete') {
+              result = data;
+            } else if (data.type === 'error') {
+              throw new Error(data.message || '测试用例设计失败');
+            }
+          }
+        }
+      }
+      
+      if (!result) {
+        throw new Error('测试用例设计未返回结果');
+      }
+      
       console.log('[DEBUG] designTestcases API - result:', result);
       return result;
     } catch (err) {
@@ -4454,26 +5168,76 @@ const TestPilotAPI = {
     }
   },
 
-  async generate(testCases, appUrl = '') {
+  async generate(testCases, appUrl = '', projectId = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 900000);
-    
+
     try {
       console.log('[DEBUG] generate API - testCases count:', testCases.length);
       console.log('[DEBUG] generate API - testCases sample:', JSON.stringify(testCases[0])?.substring(0, 500));
-      console.log('[DEBUG] generate API - appUrl:', appUrl);
-      
-      const res = await fetch(`${API_BASE}/generate`, {
+      console.log('[DEBUG] generate API - appUrl:', appUrl, 'projectId:', projectId);
+
+      const payload = { test_cases: testCases, app_url: appUrl };
+      if (projectId) payload.project_id = projectId;
+
+      const res = await fetch(`${API_BASE}/generate/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test_cases: testCases, app_url: appUrl }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
+      
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: '请求失败' }));
-        throw new Error(extractErrorMessage(err, ''));
+        const msg = extractErrorMessage(err, '');
+        if (res.status === 400 && /登录态|会话/.test(msg)) {
+          const ok = window.confirm(`${msg}\n\n是否现在去配置登录态？`);
+          if (ok) {
+            try { showLoginConfig(); } catch (_) {}
+          }
+          throw new Error(msg);
+        }
+        throw new Error(msg);
       }
-      return res.json();
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let result = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i].trim();
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.type === 'progress') {
+                console.log('[DEBUG] generate stream progress:', data.message);
+                updateLoadingMessage(data.message);
+              } else if (data.type === 'complete') {
+                result = data;
+              } else if (data.type === 'error') {
+                throw new Error(data.message);
+              }
+            } catch (e) {
+              console.warn('[DEBUG] generate stream parse error:', e);
+            }
+          }
+        }
+        
+        buffer = lines[lines.length - 1];
+      }
+
+      if (!result) {
+        throw new Error('脚本生成失败，未收到完整数据');
+      }
+      return result;
     } catch (err) {
       if (err.name === 'AbortError') {
         throw new Error('脚本生成超时，请稍后重试');
@@ -4568,15 +5332,36 @@ const TestPilotAPI = {
   },
 
   async generateLoginSession(profileId) {
-    const res = await fetch(`${API_BASE}/login-profiles/${profileId}/generate-session`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: '请求失败' }));
-      throw new Error(extractErrorMessage(err, ''));
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000);
+    try {
+      const res = await fetch(`${API_BASE}/login-profiles/${profileId}/generate-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: '请求失败' }));
+        throw new Error(extractErrorMessage(err, ''));
+      }
+      const data = await res.json();
+      if (data.success === false) {
+        const errorInfo = data.error || {};
+        let message = errorInfo.message || data.message || '会话生成失败';
+        if (errorInfo.suggestion) {
+          message += '\n\n建议：' + errorInfo.suggestion;
+        }
+        throw new Error(message);
+      }
+      return data;
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        throw new Error('会话生成超时（超过3分钟），请检查登录页面和选择器配置是否正确');
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return res.json();
   }
 };
 
@@ -4776,7 +5561,8 @@ async function handleGenerateTestcases() {
 
     const generateResult = await TestPilotAPI.generate(
       testCases,
-      getCurrentAppUrl()
+      getCurrentAppUrl(),
+      getCurrentProjectId()
     );
     const scripts = generateResult.cases || [];
 
@@ -4811,7 +5597,7 @@ async function handleGenerateTestcases() {
             expected: c.expected || null,
             script: c.script || null,
             requirementId: requirementId,
-            stability_score: c.stability_score || 80,
+            stabilityScore: c.stability_score || 80,
           });
           c._dbId = saved.id;
         }
@@ -4837,29 +5623,40 @@ function updateTestcasesPage(result) {
   const modules = [...new Set(result.cases.map(c => c.module))];
   modules.unshift('全部模块');
 
+  const allCases = result.cases.map((c, idx) => ({
+    _id: c._dbId,
+    id: `TC-${String(idx + 1).padStart(3, '0')}`,
+    _dbId: c._dbId,
+    priority: c.priority,
+    priorityTag: c.priority === 'P0' ? 'danger' : c.priority === 'P1' ? 'warning' : 'gray',
+    title: c.title,
+    module: c.module || '未分类',
+    score: c.stability_score || 80,
+    scoreTag: (c.stability_score || 80) >= 90 ? 'success' : (c.stability_score || 80) >= 75 ? 'warning' : 'danger',
+    status: '待评审',
+    statusTag: 'warning',
+    precondition: c.precondition,
+    steps: Array.isArray(c.steps) ? c.steps.join('\n') : c.steps,
+    expected: c.expected,
+    code: c.script,
+    checked: false,
+    expanded: false
+  }));
+  
+  const pageSize = 10;
+  const start = 0;
+  const end = pageSize;
+  
   data.testcases = {
     total: result.cases.length,
+    page: 1,
+    pageSize: pageSize,
     subtitle: '由AI自动生成',
     modules: modules,
-    cases: result.cases.map((c, idx) => ({
-      _id: c._dbId,
-      id: `TC-${String(idx + 1).padStart(3, '0')}`,
-      _dbId: c._dbId,
-      priority: c.priority,
-      priorityTag: c.priority === 'P0' ? 'danger' : c.priority === 'P1' ? 'warning' : 'gray',
-      title: c.title,
-      module: c.module || '未分类',
-      score: c.stability_score || 80,
-      scoreTag: (c.stability_score || 80) >= 90 ? 'success' : (c.stability_score || 80) >= 75 ? 'warning' : 'danger',
-      status: '待评审',
-      statusTag: 'warning',
-      precondition: c.precondition,
-      steps: Array.isArray(c.steps) ? c.steps.join('\n') : c.steps,
-      expected: c.expected,
-      code: c.script,
-      checked: false,
-      expanded: false
-    }))
+    allCases: allCases,
+    cases: allCases.slice(start, end),
+    filters: { module: '', priority: '', status: '', keyword: '' },
+    lastFilters: '{}'
   };
 
   // 同步用例到执行中心
@@ -5150,28 +5947,29 @@ async function handleCheckStability() {
   try {
     const result = await TestPilotAPI.checkProjectStability(projectId);
     
+    const caseCount = result.caseCount || 0;
     const checks = [
       {
         title: '选择器稳定性',
-        count: `${result.checks?.selector_stability?.risk_count || 0}/${result.caseCount}`,
+        count: `${caseCount - (result.checks?.selector_stability?.risk_count || 0)}/${caseCount}`,
         status: result.checks?.selector_stability?.suggestion || '',
         statusColor: result.checks?.selector_stability?.tag === 'success' ? 'success' : 'warning',
       },
       {
         title: '登录态注入',
-        count: `${result.checks?.login_state?.risk_count || 0}/${result.caseCount}`,
+        count: `${caseCount - (result.checks?.login_state?.risk_count || 0)}/${caseCount}`,
         status: result.checks?.login_state?.suggestion || '',
         statusColor: result.checks?.login_state?.tag === 'success' ? 'success' : 'warning',
       },
       {
         title: '等待机制',
-        count: `${result.checks?.wait_strategy?.risk_count || 0}/${result.caseCount}`,
+        count: `${caseCount - (result.checks?.wait_strategy?.risk_count || 0)}/${caseCount}`,
         status: result.checks?.wait_strategy?.suggestion || '',
         statusColor: result.checks?.wait_strategy?.tag === 'success' ? 'success' : 'warning',
       },
       {
         title: '动态数据',
-        count: `${result.checks?.dynamic_data?.risk_count || 0}/${result.caseCount}`,
+        count: `${caseCount - (result.checks?.dynamic_data?.risk_count || 0)}/${caseCount}`,
         status: result.checks?.dynamic_data?.suggestion || '',
         statusColor: result.checks?.dynamic_data?.tag === 'success' ? 'success' : 'warning',
       },
@@ -5237,7 +6035,8 @@ async function handleSearchTestcases(keyword) {
   if (!data.testcases) return;
   
   data.testcases.filters.keyword = keyword;
-  await loadTestCasesWithFilters();
+  data.testcases.page = 1;
+  await loadTestCasesWithFilters(true);
 }
 
 async function handleFilterTestcases(type, value) {
@@ -5246,15 +6045,7 @@ async function handleFilterTestcases(type, value) {
   
   data.testcases.filters[type] = value;
   data.testcases.page = 1;
-  await loadTestCasesWithFilters();
-}
-
-function handleViewMode(mode) {
-  const data = projectData[currentProjectIdx];
-  if (!data.testcases) return;
-  
-  data.testcases.filters.viewMode = mode;
-  refreshProjectContent();
+  await loadTestCasesWithFilters(true);
 }
 
 async function handlePageChange(page) {
@@ -5265,7 +6056,7 @@ async function handlePageChange(page) {
   await loadTestCasesWithFilters();
 }
 
-async function loadTestCasesWithFilters() {
+async function loadTestCasesWithFilters(forceRefresh = false) {
   const projectId = getCurrentProjectId();
   if (!projectId) return;
   
@@ -5273,22 +6064,33 @@ async function loadTestCasesWithFilters() {
   if (!data.testcases) return;
   
   const filters = data.testcases.filters;
+  const pageSize = data.testcases.pageSize || 10;
+  const currentPage = data.testcases.page || 1;
   
   try {
+    if (!forceRefresh && data.testcases.allCases && 
+        JSON.stringify(filters) === data.testcases.lastFilters) {
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+      data.testcases.cases = data.testcases.allCases.slice(start, end);
+      refreshProjectContent();
+      return;
+    }
+    
     const result = await TestPilotAPI.getTestCases(projectId, {
       module: filters.module || undefined,
       priority: filters.priority || undefined,
       status: filters.status || undefined,
       keyword: filters.keyword || undefined,
       page: data.testcases.page || 1,
-      pageSize: data.testcases.pageSize || 20
+      pageSize: data.testcases.pageSize || 10
     });
     
     if (result.items) {
-      data.testcases.total = result.total || result.items.length;
-      data.testcases.page = result.page || 1;
-      data.testcases.modules = ['全部模块', ...(result.modules || [])];
-      data.testcases.cases = result.items.map(c => ({
+      const pageSize = data.testcases.pageSize || 10;
+      const currentPage = data.testcases.page || 1;
+      
+      const allCases = result.items.map(c => ({
         _id: c.id,
         _dbId: c.id,
         id: `TC-${String(c.id).padStart(3, '0')}`,
@@ -5304,9 +6106,21 @@ async function loadTestCasesWithFilters() {
         statusTag: c.status === '已通过' ? 'success' : c.status === '需修改' ? 'danger' : 'warning',
         score: c.stabilityScore || 0,
         scoreTag: c.stabilityScore >= 90 ? 'success' : c.stabilityScore >= 75 ? 'warning' : 'danger',
+        version: c.version || 1,
         checked: false,
-        expanded: false
+        expanded: false,
+        scriptEditing: false,
       }));
+      
+      data.testcases.total = result.total || allCases.length;
+      data.testcases.page = result.page || currentPage;
+      data.testcases.modules = ['全部模块', ...(result.modules || [])];
+      data.testcases.allCases = allCases;
+      data.testcases.lastFilters = JSON.stringify(filters);
+      
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+      data.testcases.cases = allCases.slice(start, end);
     }
     
     refreshProjectContent();
@@ -5319,11 +6133,113 @@ async function loadTestCasesWithFilters() {
 function toggleCaseExpand(caseId) {
   const data = projectData[currentProjectIdx];
   if (!data.testcases) return;
-  
+
   const caseItem = data.testcases.cases.find(c => c._id === caseId);
   if (caseItem) {
     caseItem.expanded = !caseItem.expanded;
     refreshProjectContent();
+  }
+}
+
+// 切换脚本代码块的展开/收起
+function toggleScriptExpand(caseId) {
+  const data = projectData[currentProjectIdx];
+  if (!data.testcases) return;
+  const caseItem = data.testcases.cases.find(c => c._id === caseId);
+  if (caseItem) {
+    caseItem.scriptExpanded = !caseItem.scriptExpanded;
+    // 收起时退出编辑模式
+    if (!caseItem.scriptExpanded) caseItem.scriptEditing = false;
+    refreshProjectContent();
+  }
+}
+
+// 进入脚本编辑模式
+function startEditCaseScript(caseId) {
+  const data = projectData[currentProjectIdx];
+  if (!data.testcases) return;
+  const caseItem = data.testcases.cases.find(c => c._id === caseId);
+  if (caseItem) {
+    caseItem.scriptEditing = true;
+    refreshProjectContent();
+    // 刷新后聚焦到 textarea
+    setTimeout(() => {
+      const ta = document.getElementById(`case-script-editor-${caseId}`);
+      if (ta) { ta.focus(); const len = ta.value.length; ta.setSelectionRange(len, len); }
+    }, 0);
+  }
+}
+
+// 取消脚本编辑
+function cancelEditCaseScript(caseId) {
+  const data = projectData[currentProjectIdx];
+  if (!data.testcases) return;
+  const caseItem = data.testcases.cases.find(c => c._id === caseId);
+  if (caseItem) {
+    caseItem.scriptEditing = false;
+    refreshProjectContent();
+  }
+}
+
+// 保存脚本到后端，并更新本地数据
+async function saveCaseScript(caseId) {
+  const data = projectData[currentProjectIdx];
+  if (!data.testcases) return;
+  const caseItem = data.testcases.cases.find(c => c._id === caseId);
+  if (!caseItem) return;
+
+  const ta = document.getElementById(`case-script-editor-${caseId}`);
+  if (!ta) return;
+  const newScript = ta.value;
+
+  // 没有数据库 ID 时无法保存
+  if (!caseItem._dbId) {
+    showToast('用例尚未持久化，无法保存', 'warning');
+    return;
+  }
+
+  showLoading('保存脚本中...');
+  try {
+    const res = await fetch(`${API_BASE}/cases/${caseItem._dbId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        script: newScript,
+        version: caseItem.version || 1,
+        suggestionId: null,
+      }),
+    });
+
+    if (res.status === 409) {
+      hideLoading();
+      showToast('用例版本冲突，请刷新用例库后重试', 'danger');
+      return;
+    }
+    if (!res.ok) {
+      hideLoading();
+      const err = await res.json().catch(() => ({}));
+      showToast(err.detail || '保存失败', 'danger');
+      return;
+    }
+
+    const result = await res.json();
+    hideLoading();
+
+    // 更新本地数据和版本号
+    caseItem.script = newScript;
+    caseItem.version = result.version || (caseItem.version || 1) + 1;
+    caseItem.scriptEditing = false;
+    // 同步执行中心中的脚本
+    if (data.execution && Array.isArray(data.execution.items)) {
+      const execItem = data.execution.items.find(i => i._dbId === caseItem._dbId);
+      if (execItem) execItem.script = newScript;
+    }
+    refreshProjectContent();
+    showToast(result.message || '脚本已保存，后续执行将使用最新代码', 'success');
+  } catch (err) {
+    hideLoading();
+    console.error('保存脚本失败:', err);
+    showToast('保存失败，请检查网络后重试', 'danger');
   }
 }
 
@@ -5350,18 +6266,20 @@ function toggleAllCases(checked) {
   const data = projectData[currentProjectIdx];
   if (!data.testcases) return;
 
+  // 仅切换当前页用例的勾选状态
   data.testcases.cases.forEach(c => c.checked = checked);
-  
-  const caseCheckedMap = {};
-  data.testcases.cases.forEach(c => { if (c._dbId != null) caseCheckedMap[c._dbId] = !!checked; });
-  
+
+  // 同步当前页用例到执行中心
+  const currentPageDbIds = {};
+  data.testcases.cases.forEach(c => { if (c._dbId != null) currentPageDbIds[c._dbId] = true; });
+
   if (data.execution && Array.isArray(data.execution.items)) {
     data.execution.items.forEach(i => {
-      if (i._dbId != null) {
+      if (i._dbId != null && currentPageDbIds[i._dbId]) {
         i.checked = checked;
       }
     });
-    data.execution.selected = checked ? data.execution.items.length : 0;
+    data.execution.selected = data.execution.items.filter(i => i.checked).length;
   }
   refreshProjectContent();
 }
@@ -5402,7 +6320,9 @@ async function handleBatchDelete() {
   const data = projectData[currentProjectIdx];
   if (!data.testcases) return;
 
-  const checkedCases = data.testcases.cases.filter(c => c.checked);
+  // 收集所有页面中已勾选的用例
+  const allCases = data.testcases.allCases || data.testcases.cases;
+  const checkedCases = allCases.filter(c => c.checked);
   if (checkedCases.length === 0) {
     showToast('请先选择要删除的用例', 'warning');
     return;
@@ -5412,20 +6332,40 @@ async function handleBatchDelete() {
 
   let successCount = 0;
   let failCount = 0;
+  const deletedIds = new Set();
+
   for (const c of checkedCases) {
     try {
       await TestPilotAPI.deleteTestCase(c._dbId || c._id);
       successCount++;
+      deletedIds.add(c._dbId || c._id);
     } catch (e) {
       console.error('删除用例失败:', c.id, e);
       failCount++;
     }
   }
 
-  // 移除已删除的用例
-  const deletedIds = new Set(checkedCases.map(c => c._dbId || c._id));
+  // 更新 allCases 和 cases，移除已删除的用例
+  if (data.testcases.allCases) {
+    data.testcases.allCases = data.testcases.allCases.filter(c => !deletedIds.has(c._dbId || c._id));
+  }
   data.testcases.cases = data.testcases.cases.filter(c => !deletedIds.has(c._dbId || c._id));
-  data.testcases.total = data.testcases.cases.length;
+  data.testcases.total = data.testcases.allCases ? data.testcases.allCases.length : data.testcases.cases.length;
+
+  // 如果当前页删空了且不是第一页，回到上一页
+  const pageSize = data.testcases.pageSize || 10;
+  const totalPages = Math.max(1, Math.ceil(data.testcases.total / pageSize));
+  if (data.testcases.page > totalPages) {
+    data.testcases.page = totalPages;
+  }
+
+  // 重新切片当前页数据
+  if (data.testcases.allCases) {
+    const start = (data.testcases.page - 1) * pageSize;
+    const end = start + pageSize;
+    data.testcases.cases = data.testcases.allCases.slice(start, end);
+  }
+
   refreshProjectContent();
 
   if (failCount === 0) {
@@ -6419,52 +7359,33 @@ async function executeGenerateSession(profileId) {
 
   try {
     const result = await TestPilotAPI.generateLoginSession(profileId);
-    if (result.success) {
-      statusDiv.innerHTML = `
-        <div style="padding:12px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:6px;">
-          <div style="font-size:13px;color:#2e7d32;font-weight:600;margin-bottom:4px;">✓ ${result.message || '登录会话已生成'}</div>
-          <div style="font-size:11px;color:var(--ink-2);">耗时: ${(result.duration_ms / 1000).toFixed(1)}s</div>
-          <div style="font-size:11px;color:var(--ink-2);">storageState: ${result.profile.storageStatePath}</div>
-        </div>
-      `;
-      startBtn.textContent = '完成';
-      startBtn.disabled = false;
-      startBtn.style.opacity = '1';
-      startBtn.onclick = () => {
-        document.getElementById('generate-session-modal').remove();
-        refreshLoginProfilesModal();
-        // 如果当前确认的登录态是这个，更新缓存
-        if (confirmedLoginProfile && confirmedLoginProfile.id === profileId) {
-          confirmedLoginProfile = result.profile;
-          refreshProjectContent();
-        }
-      };
-      cancelBtn.style.display = 'none';
-      showToast('登录会话已生成', 'success');
-    } else {
-      // 失败：显示错误详情
-      const errorDetail = result.error || result.message || '未知错误';
-      const stderr = result.stderr || '';
-      statusDiv.innerHTML = `
-        <div style="padding:12px;background:#ffebee;border:1px solid #ef5350;border-radius:6px;">
-          <div style="font-size:13px;color:#c62828;font-weight:600;margin-bottom:4px;">✗ 生成失败</div>
-          <div style="font-size:12px;color:#c62828;margin-bottom:8px;">${errorDetail}</div>
-          ${stderr ? `<details style="font-size:11px;color:var(--ink-2);"><summary style="cursor:pointer;">查看详细日志</summary><pre style="margin-top:8px;max-height:200px;overflow-y:auto;background:#fafafa;padding:8px;border-radius:4px;white-space:pre-wrap;">${stderr}</pre></details>` : ''}
-          <div style="margin-top:8px;font-size:11px;color:var(--ink-3);">建议检查：1.账号密码是否正确；2.选择器是否匹配页面元素；3.登录页URL是否可访问；4.切换到脚本模式直接写 Playwright 代码。</div>
-        </div>
-      `;
-      startBtn.textContent = '重试';
-      startBtn.disabled = false;
-      startBtn.style.opacity = '1';
-      cancelBtn.disabled = false;
-      cancelBtn.style.opacity = '1';
-      showToast('生成会话失败: ' + errorDetail, 'danger');
-    }
+    statusDiv.innerHTML = `
+      <div style="padding:12px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:6px;">
+        <div style="font-size:13px;color:#2e7d32;font-weight:600;margin-bottom:4px;">✓ ${result.message || '登录会话已生成'}</div>
+        <div style="font-size:11px;color:var(--ink-2);">耗时: ${(result.duration_ms / 1000).toFixed(1)}s</div>
+        <div style="font-size:11px;color:var(--ink-2);">storageState: ${result.profile.storageStatePath}</div>
+      </div>
+    `;
+    startBtn.textContent = '完成';
+    startBtn.disabled = false;
+    startBtn.style.opacity = '1';
+    startBtn.onclick = () => {
+      document.getElementById('generate-session-modal').remove();
+      refreshLoginProfilesModal();
+      // 如果当前确认的登录态是这个，更新缓存
+      if (confirmedLoginProfile && confirmedLoginProfile.id === profileId) {
+        confirmedLoginProfile = result.profile;
+        refreshProjectContent();
+      }
+    };
+    cancelBtn.style.display = 'none';
+    showToast('登录会话已生成', 'success');
   } catch (e) {
     statusDiv.innerHTML = `
       <div style="padding:12px;background:#ffebee;border:1px solid #ef5350;border-radius:6px;">
-        <div style="font-size:13px;color:#c62828;font-weight:600;margin-bottom:4px;">✗ 请求异常</div>
-        <div style="font-size:12px;color:#c62828;">${e.message}</div>
+        <div style="font-size:13px;color:#c62828;font-weight:600;margin-bottom:4px;">✗ 生成失败</div>
+        <div style="font-size:12px;color:#c62828;margin-bottom:8px;">${e.message}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--ink-3);">建议检查：1.账号密码是否正确；2.选择器是否匹配页面元素；3.登录页URL是否可访问；4.切换到脚本模式直接写 Playwright 代码。</div>
       </div>
     `;
     startBtn.textContent = '重试';
@@ -6472,6 +7393,7 @@ async function executeGenerateSession(profileId) {
     startBtn.style.opacity = '1';
     cancelBtn.disabled = false;
     cancelBtn.style.opacity = '1';
+    showToast('生成会话失败', 'danger');
   }
 }
 
@@ -6982,12 +7904,7 @@ async function loadProjectFullData(projectId, index) {
       const items = testCases.items;
       const modules = testCases.modules || [...new Set(items.map(c => c.module).filter(Boolean))];
       projData.testcases = {
-        total: testCases.total || items.length,
-        page: testCases.page || 1,
-        pageSize: testCases.pageSize || 20,
-        subtitle: `已生成 ${testCases.total || items.length} 条测试用例`,
-        modules: ['全部模块', ...modules],
-        cases: items.map(c => ({
+        allCases: items.map(c => ({
           _id: c.id,
           _dbId: c.id,
           id: `TC-${String(c.id).padStart(3, '0')}`,
@@ -6999,22 +7916,28 @@ async function loadProjectFullData(projectId, index) {
           steps: c.steps || [],
           expected: c.expected || '',
           script: c.script || '',
-          status: c.status || '待评审',
-          statusTag: c.status === '已通过' ? 'success' : c.status === '需修改' ? 'danger' : 'warning',
-          score: c.stabilityScore || 0,
-          scoreTag: c.stabilityScore >= 90 ? 'success' : c.stabilityScore >= 75 ? 'warning' : 'danger',
+          status: getCaseStatusText(c.status),
+          statusTag: getCaseStatusTag(c.status),
+          score: c.stabilityScore || (c.script ? '未检测' : ''),
+          scoreTag: c.stabilityScore >= 90 ? 'success' : c.stabilityScore >= 75 ? 'warning' : (c.stabilityScore ? 'danger' : 'gray'),
           loginMode: c.loginMode || 'global',
           loginRole: c.loginRole || null,
           checked: false,
           expanded: false
         })),
+        total: testCases.total || items.length,
+        page: testCases.page || 1,
+        pageSize: testCases.pageSize || 10,
+        subtitle: `已生成 ${testCases.total || items.length} 条测试用例`,
+        modules: ['全部模块', ...modules],
+        cases: items.slice(0, 10),
         filters: {
           module: '',
           priority: '',
           status: '',
-          keyword: '',
-          viewMode: 'card'
-        }
+          keyword: ''
+        },
+        lastFilters: '{}'
       };
 
       // 同步用例到执行中心
@@ -7355,6 +8278,7 @@ async function checkBackendStatus() {
               icon: icon,
               appUrl: proj.appUrl || '',
               description: proj.description || '',
+              requiresLogin: proj.requiresLogin !== undefined ? proj.requiresLogin : 1,
               feishuDoc: '',
               feishuUrl: '',
               reqText: '',
@@ -7454,7 +8378,6 @@ function createFlowModal() {
     </div>
   `;
   document.body.appendChild(modal);
-  modal.onclick = (e) => { if (e.target === modal) closeFlowModal(); };
 }
 
 let currentFlowStep = 0;
@@ -7480,7 +8403,7 @@ function openFlowModal() {
       <div style="font-size:12px;color:var(--ink-3);">请稍候，AI正在解析需求文档</div>
       <div style="margin-top:12px;">
         <div class="progress-bar" style="width:200px;margin:0 auto;height:4px;background:var(--border);border-radius:2px;">
-          <div class="progress-bar-fill" style="width:30%;background:var(--primary);animation:pulse 1.5s infinite;"></div>
+          <div class="progress-bar-fill" style="width:0%;background:var(--primary);transition:width .3s ease;"></div>
         </div>
       </div>
     </div>
@@ -7503,8 +8426,13 @@ function updateFlowStepBar() {
   const bar = document.getElementById('flow-step-bar');
   let html = '';
   flowSteps.forEach((step, idx) => {
-    const isDone = idx < currentFlowStep;
-    const isCurrent = idx === currentFlowStep;
+    let isDone = idx < currentFlowStep;
+    let isCurrent = idx === currentFlowStep;
+    // 正在执行下一步时：当前步骤视为已结束（绿色），下一步视为正在进行（蓝色）
+    if (flowStepRunning) {
+      isDone = idx <= currentFlowStep;
+      isCurrent = idx === currentFlowStep + 1;
+    }
     const dotClass = isDone ? 'done' : (isCurrent ? 'current' : 'pending');
     const labelClass = isDone ? 'done' : (isCurrent ? 'current' : 'pending');
     html += `
@@ -7678,7 +8606,7 @@ function renderAnalysisForModal(data) {
         <div style="font-size:12px;color:var(--ink-3);">请稍候，AI正在解析需求文档</div>
         <div style="margin-top:12px;">
           <div class="progress-bar" style="width:200px;margin:0 auto;height:4px;background:var(--border);border-radius:2px;">
-            <div class="progress-bar-fill" style="width:30%;background:var(--primary);animation:pulse 1.5s infinite;"></div>
+            <div class="progress-bar-fill" style="width:0%;background:var(--primary);transition:width .3s ease;"></div>
           </div>
         </div>
       </div>
@@ -7773,11 +8701,10 @@ function renderTestcasesForModal(data) {
         测试用例设计完成，共 ${cases.length} 个用例
       </div>
 
-      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
         <div class="stat-card"><div class="stat-label">P0用例</div><div class="stat-value" style="color:var(--danger);">${summary.p0_cases || cases.filter(c => c.priority === 'P0').length}</div></div>
         <div class="stat-card"><div class="stat-label">P1用例</div><div class="stat-value" style="color:var(--warning);">${summary.p1_cases || cases.filter(c => c.priority === 'P1').length}</div></div>
         <div class="stat-card"><div class="stat-label">P2用例</div><div class="stat-value" style="color:var(--success);">${summary.p2_cases || cases.filter(c => c.priority === 'P2').length}</div></div>
-        <div class="stat-card"><div class="stat-label">功能点覆盖率</div><div class="stat-value primary">${coveredFeatures}/${totalFeatures}</div></div>
       </div>
 
       <div style="max-height:50vh;overflow-y:auto;">
@@ -7790,7 +8717,7 @@ function renderTestcasesForModal(data) {
             ).join('')
             : '';
           const testDataHtml = c.test_data && c.test_data.input_values && c.test_data.input_values.length > 0
-            ? `<div class="fp-card-row"><div class="row-label">测试数据</div><div class="row-value"><div style="font-size:12px;">${c.test_data.input_values.map(v => `${v.field}: ${v.value} (${v.purpose})`).join('<br>')}</div></div></div>`
+            ? `<div class="fp-card-row"><div class="row-label">测试数据</div><div class="row-value"><div style="font-size:12px;">${c.test_data.input_values.map(v => `${v.field}: ${v.value || ''}${v.purpose ? ` (${v.purpose})` : ''}`).join('<br>')}</div></div></div>`
             : '';
           
           return `
@@ -7899,7 +8826,7 @@ function renderStabilityForModal(data) {
                 ${script && script.script ? `
                   <div style="margin-bottom:8px;">
                     <div style="font-size:11px;color:var(--ink-4);margin-bottom:4px;">生成的脚本预览</div>
-                    <pre style="font-size:11px;color:var(--ink-2);background:var(--bg-card);padding:8px;border-radius:4px;max-height:100px;overflow-y:auto;">${script.script.substring(0, 500)}${script.script.length > 500 ? '...' : ''}</pre>
+                    <pre style="font-size:11px;color:var(--ink-2);background:var(--bg-card);padding:8px;border-radius:4px;max-height:240px;overflow:auto;white-space:pre;">${escapeHtml(script.script)}</pre>
                   </div>` : ''}
                 ${caseIssues.length > 0 ? `
                   <div style="border-top:1px solid var(--border);padding-top:8px;">
@@ -8018,6 +8945,7 @@ async function handleStartAnalysisFlow() {
     let charCount = 0;
     const updateLoadingText = () => {
       const dots = '.'.repeat((charCount % 5) + 1);
+      const progressPercent = Math.min(95, Math.round((1 - 1 / (1 + charCount / 800)) * 100));
       const loadingEl = document.querySelector('.flow-modal-body div[style*="padding:40px"]');
       if (loadingEl) {
         loadingEl.innerHTML = `
@@ -8025,6 +8953,11 @@ async function handleStartAnalysisFlow() {
             <div style="font-size:48px;margin-bottom:16px;">📊</div>
             <div style="font-size:14px;color:var(--ink-2);margin-bottom:8px;">AI正在分析需求${dots}</div>
             <div style="font-size:12px;color:var(--ink-3);">已生成 ${charCount} 字符</div>
+            <div style="margin-top:12px;">
+              <div class="progress-bar" style="width:200px;margin:0 auto;height:4px;background:var(--border);border-radius:2px;">
+                <div class="progress-bar-fill" style="width:${progressPercent}%;background:var(--primary);transition:width .3s ease;"></div>
+              </div>
+            </div>
           </div>
         `;
       }
@@ -8188,33 +9121,43 @@ async function handleGenerateTestcasesForFlow() {
       throw new Error('未生成任何测试用例');
     }
 
+    const allCases = currentDesignedTestCases.map((c, i) => ({
+      _id: i,
+      id: c.id,
+      title: c.title,
+      module: c.module || '',
+      priority: c.priority || 'P1',
+      type: c.type || '功能测试',
+      preconditions: c.preconditions || '',
+      test_data: c.test_data || { description: '', input_values: [] },
+      steps: c.steps || [],
+      expected_result: c.expected_result || '',
+      verification_method: c.verification_method || '',
+      tags: c.tags || [],
+      notes: c.notes || '',
+      script: '',
+      status: 'pending',
+      checked: false,
+      editMode: false,
+    }));
+    
+    const pageSize = 10;
+    const start = 0;
+    const end = pageSize;
+    
     data.testcases = {
-      cases: currentDesignedTestCases.map((c, i) => ({
-        _id: i,
-        id: c.id,
-        title: c.title,
-        module: c.module || '',
-        priority: c.priority || 'P1',
-        type: c.type || '功能测试',
-        preconditions: c.preconditions || '',
-        test_data: c.test_data || { description: '', input_values: [] },
-        steps: c.steps || [],
-        expected_result: c.expected_result || '',
-        verification_method: c.verification_method || '',
-        tags: c.tags || [],
-        notes: c.notes || '',
-        script: '',
-        status: 'pending',
-        checked: false,
-        editMode: false,
-      })),
-      viewMode: 'list',
-      filters: { module: '', priority: '', status: '', keyword: '' },
-      currentPage: 1,
       total: currentDesignedTestCases.length,
+      page: 1,
+      pageSize: pageSize,
+      allCases: allCases,
+      cases: allCases.slice(start, end),
+      filters: { module: '', priority: '', status: '', keyword: '' },
+      lastFilters: '{}',
       summary: result.testcase_summary || {},
       coverage_matrix: result.coverage_matrix || {},
     };
+    
+    recentlyGeneratedCaseIds = currentDesignedTestCases.map(c => c.id);
 
   } catch (err) {
     console.error('Design testcases error:', err);
@@ -8227,6 +9170,33 @@ async function handleGenerateTestcasesForFlow() {
 async function handleCheckStabilityForFlow() {
   const data = projectData[currentProjectIdx];
   const body = document.getElementById('flow-modal-body');
+
+  // 防线4：脚本生成前预警——项目需要登录态时，先检查是否有有效会话
+  if (data.requiresLogin === 1) {
+    let hasSession = false;
+    try {
+      const detail = await TestPilotAPI.getProject(data.id);
+      const status = detail.loginStateStatus || detail.login_state_status || {};
+      hasSession = !!status.hasSession;
+    } catch (_) {
+      // 查询失败时降级为检查本地 loginState 字段
+      hasSession = !!(data.execution && data.execution.loginState && !/匿名|未配置/.test(data.execution.loginState));
+    }
+    if (!hasSession) {
+      const ok = window.confirm(
+        '检测到项目需要登录态，但尚未生成会话。\n' +
+        '继续生成脚本时，AI 将无法访问受保护页面的真实 DOM，可能生成错误 selector。\n\n' +
+        '是否现在去配置登录态并生成会话？'
+      );
+      if (ok) {
+        try { showLoginConfig(); } catch (_) {}
+        throw new Error('请先配置登录态并生成会话，然后点击重试按钮继续脚本生成');
+      }
+      // 用户选择继续，则给一次提示但放行
+      showToast('未生成会话，脚本将基于需求文本生成，准确率可能下降', 'warning');
+    }
+  }
+
   const startTime = Date.now();
   let progressInterval;
   let progressPercent = 0;
@@ -8271,7 +9241,8 @@ async function handleCheckStabilityForFlow() {
 
     const result = await TestPilotAPI.generate(
       currentDesignedTestCases,
-      getCurrentAppUrl()
+      getCurrentAppUrl(),
+      getCurrentProjectId()
     );
 
     const scripts = result.cases || [];
@@ -8323,19 +9294,19 @@ async function handleCheckStabilityForFlow() {
       }
     });
 
-    checks[0].count = `${checkCounts.selector_stability.risk}/${checkCounts.selector_stability.total}`;
+    checks[0].count = `${checkCounts.selector_stability.total - checkCounts.selector_stability.risk}/${checkCounts.selector_stability.total}`;
     checks[0].status = checkCounts.selector_stability.risk > 0 ? '存在风险' : '检测通过';
     checks[0].statusColor = checkCounts.selector_stability.risk > 0 ? 'warning' : 'success';
-    
-    checks[1].count = `${checkCounts.login_state.risk}/${checkCounts.login_state.total}`;
+
+    checks[1].count = `${checkCounts.login_state.total - checkCounts.login_state.risk}/${checkCounts.login_state.total}`;
     checks[1].status = checkCounts.login_state.risk > 0 ? '存在风险' : '检测通过';
     checks[1].statusColor = checkCounts.login_state.risk > 0 ? 'warning' : 'success';
-    
-    checks[2].count = `${checkCounts.wait_strategy.risk}/${checkCounts.wait_strategy.total}`;
+
+    checks[2].count = `${checkCounts.wait_strategy.total - checkCounts.wait_strategy.risk}/${checkCounts.wait_strategy.total}`;
     checks[2].status = checkCounts.wait_strategy.risk > 0 ? '存在风险' : '检测通过';
     checks[2].statusColor = checkCounts.wait_strategy.risk > 0 ? 'warning' : 'success';
-    
-    checks[3].count = `${checkCounts.dynamic_data.risk}/${checkCounts.dynamic_data.total}`;
+
+    checks[3].count = `${checkCounts.dynamic_data.total - checkCounts.dynamic_data.risk}/${checkCounts.dynamic_data.total}`;
     checks[3].status = checkCounts.dynamic_data.risk > 0 ? '存在风险' : '检测通过';
     checks[3].statusColor = checkCounts.dynamic_data.risk > 0 ? 'warning' : 'success';
 
@@ -8362,7 +9333,7 @@ async function handleCheckStabilityForFlow() {
           if (tcData._dbId) {
             await TestPilotAPI.updateTestCase(projectId, tcData._dbId, {
               script: script.script || null,
-              stability_score: script.stability_score || 80,
+              stabilityScore: script.stability_score || 80,
             });
           } else {
             const saved = await TestPilotAPI.createTestCase(projectId, {
@@ -8374,7 +9345,7 @@ async function handleCheckStabilityForFlow() {
               expected: tcData.expected_result || null,
               script: script.script || null,
               requirementId: requirementId,
-              stability_score: script.stability_score || 80,
+              stabilityScore: script.stability_score || 80,
             });
             tcData._dbId = saved.id;
           }

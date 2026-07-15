@@ -32,7 +32,7 @@ from .models import (
     TestCaseStep,
     TestCaseSummary,
 )
-from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, REVIEW_PROMPT, SYSTEM_PROMPT, TESTCASE_DESIGN_PROMPT
+from .prompts import ANALYZE_PROMPT, GENERATE_PROMPT, REVIEW_PROMPT, SYSTEM_PROMPT, TESTCASE_DESIGN_PROMPT_PART1, TESTCASE_DESIGN_PROMPT_PART2, TESTCASE_DESIGN_PROMPT_JSON_TEMPLATE
 
 
 # ============================================================
@@ -66,7 +66,7 @@ class AIService:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.7,
-            "max_tokens": 16000,
+            "max_tokens": 32000,
             "response_format": {"type": "json_object"},
             "disable_reasoning": True,
         }
@@ -81,12 +81,27 @@ class AIService:
                         raise RuntimeError(
                             f"AI服务暂时不可用（503），请稍后重试。URL: {url}"
                         )
-                    
+
                     if resp.status_code == 401:
                         raise RuntimeError(
                             f"API Key 无效（401），请检查 .env 文件中的 DEEPSEEK_API_KEY 配置。"
                         )
-                    
+
+                    if resp.status_code == 403:
+                        # 尝试读取响应体中的错误信息
+                        forbidden_detail = ""
+                        try:
+                            err_body = resp.json()
+                            forbidden_detail = err_body.get("error", {}).get("message", "") or str(err_body)
+                        except Exception:
+                            forbidden_detail = resp.text[:300] if resp.text else ""
+                        raise RuntimeError(
+                            f"AI服务拒绝访问（403 Forbidden）。"
+                            f"常见原因：API Key 已失效、账户余额不足、或请求被服务方拦截。"
+                            f"请检查 API 服务状态和账户余额。"
+                            + (f" 服务方返回：{forbidden_detail}" if forbidden_detail else "")
+                        )
+
                     if resp.status_code == 404:
                         raise RuntimeError(
                             f"API 路径不存在（404），请检查 DEEPSEEK_BASE_URL 配置。当前URL: {url}"
@@ -107,9 +122,21 @@ class AIService:
                 print(f"[DEBUG] usage: {data.get('usage', {})}")
 
                 content = data["choices"][0]["message"]["content"]
-                
+                finish_reason = data["choices"][0].get("finish_reason", "unknown")
+                print(f"[DEBUG] finish_reason: {finish_reason}, content_length: {len(content) if content else 0}")
+
+                # 截断检测：finish_reason="length" 表示响应被 max_tokens 截断，JSON 必然不完整
+                if finish_reason == "length":
+                    print(f"[DEBUG] 响应被 max_tokens 截断，content_length: {len(content) if content else 0}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)
+                        continue
+                    raise RuntimeError(
+                        f"AI 响应被 max_tokens 截断（finish_reason=length），"
+                        f"返回内容不完整无法解析。请减少用例数量或缩短脚本内容后重试。"
+                    )
+
                 if content is None:
-                    finish_reason = data["choices"][0].get("finish_reason", "unknown")
                     print(f"[DEBUG] content is None, finish_reason: {finish_reason}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(2)
@@ -300,7 +327,7 @@ class AIService:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.7,
-            "max_tokens": 12000,
+            "max_tokens": 32000,
             "response_format": {"type": "json_object"},
             "stream": True,
         }
@@ -314,17 +341,37 @@ class AIService:
                             raise RuntimeError(
                                 f"AI服务暂时不可用（503），请稍后重试。URL: {url}"
                             )
-                        
+
                         if resp.status_code == 401:
                             raise RuntimeError(
                                 f"API Key 无效（401），请检查 .env 文件中的 DEEPSEEK_API_KEY 配置。"
                             )
-                        
+
+                        if resp.status_code == 403:
+                            # 403 通常是频率限制或临时拦截，读取错误详情并重试
+                            forbidden_detail = ""
+                            try:
+                                body = await resp.aread()
+                                forbidden_detail = body.decode("utf-8", errors="replace")[:300]
+                            except Exception:
+                                pass
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(3)
+                                raise httpx.ConnectError(
+                                    f"403 Forbidden (重试中): {forbidden_detail}"
+                                )
+                            raise RuntimeError(
+                                f"AI服务拒绝访问（403 Forbidden）。"
+                                f"常见原因：请求频率过高、API Key 已失效、账户余额不足。"
+                                f"请稍后重试或检查 API 服务状态。"
+                                + (f" 服务方返回：{forbidden_detail}" if forbidden_detail else "")
+                            )
+
                         if resp.status_code == 404:
                             raise RuntimeError(
                                 f"API 路径不存在（404），请检查 DEEPSEEK_BASE_URL 配置。当前URL: {url}"
                             )
-                        
+
                         resp.raise_for_status()
                         async for line in resp.aiter_lines():
                             if line.strip().startswith("data:"):
@@ -400,6 +447,65 @@ class AIService:
             raw=raw,
         )
 
+    def _deduplicate_test_cases(self, test_cases: list) -> list:
+        """去重测试用例：保留1条最完整的正向用例，移除所有其他正向用例"""
+        if not test_cases:
+            return test_cases
+        
+        positive_cases = []
+        negative_cases = []
+        
+        negative_keywords = ['错误', '失败', '异常', '边界', '拒绝', '提示', '为空', '无效', '不跳转']
+        
+        for tc in test_cases:
+            tc_type = getattr(tc, 'type', '')
+            title = getattr(tc, 'title', '')
+            
+            is_negative = False
+            
+            if tc_type in ['异常输入测试', '边界值测试', '异常测试']:
+                is_negative = True
+            else:
+                for kw in negative_keywords:
+                    if kw in title:
+                        is_negative = True
+                        break
+            
+            if is_negative:
+                negative_cases.append(tc)
+            else:
+                positive_cases.append(tc)
+        
+        if not positive_cases:
+            return test_cases
+        
+        best_positive = None
+        max_fields = 0
+        
+        for tc in positive_cases:
+            test_data = getattr(tc, 'test_data', None)
+            if test_data:
+                if isinstance(test_data, dict):
+                    input_values = test_data.get('input_values', [])
+                else:
+                    input_values = getattr(test_data, 'input_values', [])
+                field_count = len(input_values)
+                
+                if field_count > max_fields:
+                    max_fields = field_count
+                    best_positive = tc
+        
+        if not best_positive:
+            best_positive = positive_cases[0]
+        
+        filtered_cases = [best_positive]
+        filtered_cases.extend(negative_cases)
+        
+        for i, tc in enumerate(filtered_cases):
+            tc.id = f"TC-{i+1:03d}"
+        
+        return filtered_cases
+
     async def design_test_cases(
         self,
         feature_points: list[FeaturePoint],
@@ -413,9 +519,8 @@ class AIService:
         from datetime import datetime
         generation_time = datetime.now().isoformat()
         
-        prompt = TESTCASE_DESIGN_PROMPT.format(
+        prompt = TESTCASE_DESIGN_PROMPT_PART1 + TESTCASE_DESIGN_PROMPT_JSON_TEMPLATE + TESTCASE_DESIGN_PROMPT_PART2.format(
             feature_points_json=fp_json,
-            generation_time=generation_time,
         )
 
         raw = await self.chat(prompt)
@@ -426,6 +531,10 @@ class AIService:
 
         test_cases = []
         for tc in data.get("test_cases", []):
+            if not isinstance(tc, dict):
+                print(f"[DEBUG] design_test_cases - tc is not dict: {type(tc)}, value: {tc}")
+                continue
+            
             steps = []
             for s in tc.get("steps", []):
                 if isinstance(s, dict):
@@ -444,6 +553,8 @@ class AIService:
                     ))
             
             test_data = tc.get("test_data", {})
+            if not isinstance(test_data, dict):
+                test_data = {}
             input_values = test_data.get("input_values", [])
             
             if isinstance(input_values, list):
@@ -476,6 +587,8 @@ class AIService:
                 tags=tc.get("tags", []),
                 notes=tc.get("notes", ""),
             ))
+
+        test_cases = self._deduplicate_test_cases(test_cases)
 
         summary_data = data.get("testcase_summary", {})
         summary = TestCaseSummary(
@@ -512,14 +625,16 @@ class AIService:
         self,
         test_cases: list[DesignedTestCase],
         app_url: str = "",
+        storage_state_path: str | None = None,
     ) -> GenerateResponse:
         """脚本生成：测试用例 → Playwright 脚本（含稳定性检测）"""
         from .stability_checker import StabilityChecker
         
         s = self.settings
-        tc_json = json.dumps(
-            [tc.model_dump() for tc in test_cases], ensure_ascii=False, indent=2
-        )
+        
+        if not app_url:
+            raise RuntimeError("应用URL未配置，请在项目设置中填写被测应用的URL（如 http://localhost:3001）")
+
         test_account = "未提供"
         if s.test_username:
             test_account = f"用户名: {s.test_username} / 密码: {s.test_password or '***'}"
@@ -533,58 +648,61 @@ class AIService:
             if modules:
                 app_name = ", ".join(list(modules)[:3])
         
-        base_prompt = GENERATE_PROMPT.format(
-            test_cases_json=tc_json,
-            app_name=app_name,
-            app_url=app_url or "未提供",
-            login_url=s.login_url or "未提供",
-            test_account=test_account,
-            test_username=s.test_username or "",
-            test_password=s.test_password or "",
-        )
-
         validation_errors: list[str] = []
         raw = ""
         cases: list[GeneratedCase] = []
-        min_case_count = len(test_cases)
-
-        prompt = base_prompt
-        raw = await self.chat(prompt)
-        data = self._parse_json(raw)
-        cases = []
-
         checker = StabilityChecker()
 
-        for c in data.get("scripts", []):
-            script = self._strip_code_fence(c.get("script", ""))
-            errors = self._validate_script(script)
-            if errors:
-                validation_errors.extend(
-                    [f"[{c.get('module', 'unknown')}] {e}" for e in errors]
-                )
-            
-            stability_check_result = checker.analyze(script, c.get("case_title", ""))
-            
-            cases.append(
-                GeneratedCase(
-                    title=c.get("case_title", c.get("title", "未命名用例")),
-                    module=c.get("module", ""),
-                    priority=c.get("priority", "P1"),
-                    precondition="",
-                    steps=[],
-                    expected="",
-                    script=script,
-                    stability_score=stability_check_result.get("overall_score", c.get("stability_score", 80)),
-                    stability_checks=stability_check_result.get("checks"),
-                    stability_issues=stability_check_result.get("issues", []),
-                )
-            )
+        tc_json = json.dumps([tc.model_dump() for tc in test_cases], ensure_ascii=False, indent=2)
+        
+        base_prompt = GENERATE_PROMPT.format(
+            test_cases_json=tc_json,
+            app_name=app_name,
+            app_url=app_url,
+            login_url=s.login_url or app_url,
+            test_account=test_account,
+            test_username=s.test_username or "",
+            test_password=s.test_password or "",
+            page_context="# 页面快照（暂未启用）",
+        )
 
-        if len(cases) < min_case_count:
-            validation_errors.append(
-                f"生成的脚本数({len(cases)})少于最小要求({min_case_count})。"
-                f"请为每条测试用例生成对应的脚本。"
-            )
+        prompt = base_prompt
+        tc_raw = await self.chat(prompt)
+        raw += tc_raw + "\n"
+        
+        try:
+            data = self._parse_json(tc_raw)
+            scripts = data.get("scripts", [])
+            if scripts:
+                for i, c in enumerate(scripts):
+                    tc = test_cases[i] if i < len(test_cases) else None
+                    script = self._strip_code_fence(c.get("script", ""))
+                    errors = self._validate_script(script)
+                    if errors:
+                        validation_errors.extend(
+                            [f"[{tc.module or 'unknown'}] {e}" for e in errors]
+                        )
+                    
+                    stability_check_result = checker.analyze(script, c.get("case_title", tc.title if tc else ""))
+                    
+                    cases.append(
+                        GeneratedCase(
+                            title=c.get("case_title", tc.title if tc else ""),
+                            module=c.get("module", tc.module or "" if tc else ""),
+                            priority=c.get("priority", tc.priority if tc else "P1"),
+                            precondition="",
+                            steps=[],
+                            expected="",
+                            script=script,
+                            stability_score=stability_check_result.get("overall_score", c.get("stability_score", 80)),
+                            stability_checks=stability_check_result.get("checks"),
+                            stability_issues=stability_check_result.get("issues", []),
+                        )
+                    )
+            else:
+                validation_errors.append("未生成任何脚本")
+        except Exception as e:
+            validation_errors.append(f"脚本生成失败 - {str(e)}")
 
         if validation_errors:
             raw += (
@@ -613,7 +731,7 @@ class AIService:
                     "priority": c.priority,
                     "steps": c.steps,
                     "expected": c.expected,
-                    "script": c.script[:500] if c.script else "",
+                    "script": c.script if c.script else "",
                 }
                 for idx, c in enumerate(cases)
             ],
@@ -732,7 +850,16 @@ class AIService:
                 return parsed
             elif isinstance(parsed, list):
                 return {"test_cases": parsed}
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f"[DEBUG] JSON parse error (first attempt): {e}")
+            print(f"[DEBUG] Error location: line {e.lineno}, column {e.colno}, pos {e.pos}")
+            
+            if e.lineno and e.colno:
+                lines = text.split('\n')
+                if e.lineno <= len(lines):
+                    context_line = lines[e.lineno - 1]
+                    print(f"[DEBUG] Context line {e.lineno}: {context_line}")
+                    print(f"[DEBUG] Position: {' ' * (e.colno - 1)}^")
             pass
         
         def find_matching_brace(s, start_char, end_char):
@@ -797,7 +924,7 @@ class AIService:
         except (SyntaxError, ValueError):
             pass
         
-        raise RuntimeError(f"JSON 解析失败\n原始内容前500字符: {text[:500]}")
+        raise RuntimeError(f"JSON 解析失败\n原始内容前1000字符: {text[:1000]}\n原始内容后1000字符: {text[-1000:]}\n原始内容长度: {len(text)}")
 
     @staticmethod
     def _strip_code_fence(code: str) -> str:
@@ -932,6 +1059,20 @@ class ExecutionService:
         # Windows 路径反斜杠在 TS 字符串中会被当作转义符，需替换为正斜杠
         storage_state = storage_state_path.replace("\\", "/") if storage_state_path else None
         storage_line = f"storageState: '{storage_state}'," if storage_state else ""
+        
+        # 检查代理配置
+        proxy_config = ""
+        proxy_server = os.environ.get("PLAYWRIGHT_PROXY_SERVER")
+        proxy_username = os.environ.get("PLAYWRIGHT_PROXY_USERNAME")
+        proxy_password = os.environ.get("PLAYWRIGHT_PROXY_PASSWORD")
+        if proxy_server:
+            proxy_parts = [f"server: '{proxy_server}'"]
+            if proxy_username:
+                proxy_parts.append(f"username: '{proxy_username}'")
+            if proxy_password:
+                proxy_parts.append(f"password: '{proxy_password}'")
+            proxy_config = f"\n    proxy: {{{', '.join(proxy_parts)}}},"
+        
         config_content = f"""import {{ defineConfig }} from '@playwright/test';
 
 export default defineConfig({{
@@ -940,7 +1081,7 @@ export default defineConfig({{
     browserName: '{self.settings.browser_type}',
     screenshot: 'on',
     video: 'retain-on-failure',
-    {storage_line}
+    {storage_line}{proxy_config}
   }},
 }});
 """
@@ -959,9 +1100,29 @@ export default defineConfig({{
     @staticmethod
     def _extract_error(stderr: str, stdout: str) -> str:
         """从输出中提取关键错误信息"""
-        for line in (stderr + "\n" + stdout).splitlines():
+        full_output = stderr + "\n" + stdout
+        
+        if "net::ERR_CONNECTION_RESET" in full_output:
+            return "网络连接被重置。可能原因：\n1. 目标网站无法访问（网络限制/防火墙）\n2. 代理配置不正确\n3. 网站服务器拒绝连接\n\n解决方案：\n- 检查网络是否能访问目标URL\n- 如果需要代理，请设置环境变量 PLAYWRIGHT_PROXY_SERVER\n- 尝试使用其他网络环境"
+        
+        if "net::ERR_CONNECTION_REFUSED" in full_output:
+            return "连接被拒绝。目标服务器未响应或端口未开放。"
+        
+        if "net::ERR_NAME_NOT_RESOLVED" in full_output:
+            return "域名解析失败。请检查URL是否正确，或DNS配置是否正常。"
+        
+        if "net::ERR_TIMED_OUT" in full_output:
+            return "连接超时。目标网站响应太慢或网络不稳定。"
+        
+        if "page.goto" in full_output and ("ERR_" in full_output or "Error:" in full_output):
+            for line in full_output.splitlines():
+                if "page.goto" in line or "Error:" in line:
+                    return line[:500]
+            return "页面导航失败，请检查目标URL是否可访问"
+        
+        for line in full_output.splitlines():
             line = line.strip()
             if line.startswith("Error:") or "error" in line.lower()[:20]:
                 return line[:500]
-        # 兜底：返回 stderr 最后几行
+        
         return stderr[-500:] if stderr else stdout[-500:]

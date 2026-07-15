@@ -13,3 +13,6 @@ test-results/
 .vscode/
 *.swp
 *.swo
+testpilot-backend/data/*.db
+testpilot-backend/data/storage-states/
+testpilot-backend/testpilot.db

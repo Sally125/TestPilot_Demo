@@ -62,8 +62,8 @@ class DesignedTestCase(BaseModel):
     """设计的测试用例"""
     id: str = Field(..., description="用例ID，如 TC-001")
     title: str = Field(..., description="用例标题")
-    source_feature_id: str = Field(default="", description="来源功能点ID")
-    source_feature_name: str = Field(default="", description="来源功能点名称")
+    source_feature_id: str | list[str] = Field(default="", description="来源功能点ID")
+    source_feature_name: str | list[str] = Field(default="", description="来源功能点名称")
     priority: Literal["P0", "P1", "P2"] = Field(default="P1", description="优先级")
     type: str = Field(default="功能测试", description="测试类型")
     module: str = Field(default="", description="所属功能模块")
@@ -113,6 +113,7 @@ class GenerateRequest(BaseModel):
     """脚本生成请求"""
     test_cases: list[DesignedTestCase] = Field(..., min_length=1, description="测试用例列表")
     app_url: str = Field(default="", description="被测应用 URL")
+    project_id: int | None = Field(default=None, description="项目 ID，用于查询登录态配置")
 
 
 class GeneratedCase(BaseModel):
@@ -163,6 +164,7 @@ class ProjectCreate(BaseModel):
     appUrl: str | None = None
     dim: str | None = None
     techStack: str | None = None
+    requiresLogin: int = Field(default=1, description="是否需要登录态：1=需要登录，0=无需登录")
 
 
 class ProjectResponse(BaseModel):
@@ -172,6 +174,14 @@ class ProjectResponse(BaseModel):
     appUrl: str | None = None
     dim: str | None = None
     techStack: str | None = None
+    requiresLogin: int = Field(default=1, description="是否需要登录态")
+
+
+class LoginStateStatus(BaseModel):
+    hasProfile: bool = Field(default=False, description="是否存在非匿名的 LoginProfile")
+    hasSession: bool = Field(default=False, description="默认 profile 是否有 storage_state_path 且文件存在")
+    sessionExpired: bool = Field(default=False, description="会话是否已过期")
+    defaultProfileId: int | None = Field(default=None, description="默认 profile 的 ID")
 
 
 # ==================== 通用 ====================
@@ -209,6 +219,7 @@ class TestCaseCreate(BaseModel):
     requirementId: int | None = None
     loginMode: str = Field(default="global", description="登录态模式：global/specified/anonymous")
     loginRole: str | None = Field(default=None, description="指定登录态角色（仅 loginMode=specified 时使用）")
+    stabilityScore: int | None = None
 
 
 class LoginProfileCreate(BaseModel):

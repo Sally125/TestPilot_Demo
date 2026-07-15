@@ -15,6 +15,8 @@ class Project(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    requires_login = Column(Integer, nullable=False, default=1)
+
 
 class Requirement(Base):
     __tablename__ = "requirements"

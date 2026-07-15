@@ -20,13 +20,14 @@ def get_projects(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_project(db: Session, name: str, description: str = None, app_url: str = None,
-                   dim: str = None, tech_stack: str = None):
+                   dim: str = None, tech_stack: str = None, requires_login: int = 1):
     db_project = Project(
         name=name,
         description=description,
         app_url=app_url,
         dim=dim,
-        tech_stack=tech_stack
+        tech_stack=tech_stack,
+        requires_login=requires_login
     )
     db.add(db_project)
     try:
@@ -92,7 +93,7 @@ def create_test_case(db: Session, project_id: int, title: str, module: str = Non
                      priority: str = "P1", precondition: str = None, steps: list = None,
                      expected: str = None, script: str = None, script_path: str = None,
                      requirement_id: int = None, login_mode: str = "global",
-                     login_role: str = None):
+                     login_role: str = None, stability_score: int = None):
     db_case = TestCase(
         project_id=project_id,
         requirement_id=requirement_id,
@@ -105,7 +106,8 @@ def create_test_case(db: Session, project_id: int, title: str, module: str = Non
         script=script,
         script_path=script_path,
         login_mode=login_mode or "global",
-        login_role=login_role
+        login_role=login_role,
+        stability_score=stability_score
     )
     db.add(db_case)
     db.commit()
@@ -545,9 +547,14 @@ def get_login_profile(db: Session, profile_id: int):
 
 def get_default_login_profile(db: Session, project_id: int):
     """获取项目的默认登录态"""
-    return db.query(LoginProfile).filter(
+    profile = db.query(LoginProfile).filter(
         LoginProfile.project_id == project_id,
         LoginProfile.is_default == 1
+    ).first()
+    if profile:
+        return profile
+    return db.query(LoginProfile).filter(
+        LoginProfile.project_id == project_id
     ).first()
 
 
@@ -659,3 +666,28 @@ def delete_login_profile(db: Session, profile_id: int):
         db.commit()
         return True
     return False
+
+
+def get_project_login_state_status(db: Session, project_id: int) -> dict:
+    profiles = get_login_profiles(db, project_id)
+    configured = [p for p in profiles if p.id != 'anonymous']
+    default = get_default_login_profile(db, project_id)
+
+    has_session = False
+    session_expired = False
+    if default and default.storage_state_path:
+        from pathlib import Path
+        has_session = Path(default.storage_state_path).exists()
+        if default.valid_until:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            expired = default.valid_until
+            if expired.tzinfo is None:
+                expired = expired.replace(tzinfo=datetime.timezone.utc)
+            session_expired = expired < now
+
+    return {
+        "hasProfile": len(configured) > 0,
+        "hasSession": has_session,
+        "sessionExpired": session_expired,
+        "defaultProfileId": default.id if default else None
+    }

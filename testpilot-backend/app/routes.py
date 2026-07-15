@@ -26,6 +26,8 @@ from .models import (
     ReviewRequest,
     ReviewResponse,
     ProjectCreate,
+    ProjectResponse,
+    LoginStateStatus,
     RequirementCreate,
     AnalysisSaveRequest,
     TestCaseCreate,
@@ -50,6 +52,7 @@ from .crud import (
     get_projects,
     get_project,
     get_project_by_name,
+    get_project_login_state_status,
     create_project,
     update_project,
     delete_project,
@@ -245,10 +248,9 @@ async def design_testcases_stream(req: DesignTestCasesRequest):
             from datetime import datetime
             generation_time = datetime.now().isoformat()
             
-            from .prompts import TESTCASE_DESIGN_PROMPT
-            prompt = TESTCASE_DESIGN_PROMPT.format(
+            from .prompts import TESTCASE_DESIGN_PROMPT_PART1, TESTCASE_DESIGN_PROMPT_PART2, TESTCASE_DESIGN_PROMPT_JSON_TEMPLATE
+            prompt = TESTCASE_DESIGN_PROMPT_PART1 + TESTCASE_DESIGN_PROMPT_JSON_TEMPLATE + TESTCASE_DESIGN_PROMPT_PART2.format(
                 feature_points_json=fp_json,
-                generation_time=generation_time,
             )
             
             buffer = ""
@@ -257,18 +259,23 @@ async def design_testcases_stream(req: DesignTestCasesRequest):
                 yield f"data: {json.dumps({'type': 'progress', 'content': chunk, 'buffer_length': len(buffer)})}\n\n"
             
             text = buffer.strip()
+            
+            if not text:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'AI返回内容为空，请检查API Key和网络连接', 'raw': ''})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+            
             if text.startswith("```"):
                 text = re.sub(r"^```(?:json)?\s*", "", text)
                 text = re.sub(r"\s*```$", "", text)
             
             try:
                 data = json.loads(text)
-                result = await ai.design_test_cases(req.feature_points)
                 result_dict = {
                     "type": "complete",
-                    "testcase_summary": result.testcase_summary.model_dump(),
-                    "test_cases": [tc.model_dump() for tc in result.test_cases],
-                    "coverage_matrix": result.coverage_matrix.model_dump(),
+                    "testcase_summary": data.get("testcase_summary", {}),
+                    "test_cases": data.get("test_cases", []),
+                    "coverage_matrix": data.get("coverage_matrix", {}),
                     "raw": text,
                 }
                 yield f"data: {json.dumps(result_dict, ensure_ascii=False)}\n\n"
@@ -293,14 +300,37 @@ async def design_testcases_stream(req: DesignTestCasesRequest):
 
 
 @router.post("/generate", response_model=GenerateResponse)
-async def generate(req: GenerateRequest) -> GenerateResponse:
+async def generate(req: GenerateRequest, db: Session = Depends(get_db)) -> GenerateResponse:
+    import datetime
+    
+    storage_state_path = None
+    if req.project_id:
+        project = get_project(db, req.project_id)
+        if project and getattr(project, 'requires_login', 1) == 1:
+            default_profile = get_default_login_profile(db, req.project_id)
+            if not default_profile or not default_profile.storage_state_path:
+                raise HTTPException(
+                    status_code=400,
+                    detail="项目需要登录态，但尚未生成会话。请先在「登录态配置」中生成会话后再生成脚本。"
+                )
+            if default_profile.valid_until:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                valid_until_utc = default_profile.valid_until.astimezone(datetime.timezone.utc) if default_profile.valid_until.tzinfo else default_profile.valid_until.replace(tzinfo=datetime.timezone.utc)
+                if valid_until_utc < now:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="项目登录态会话已过期，请重新生成会话后再生成脚本。"
+                    )
+            storage_state_path = default_profile.storage_state_path
+
     ai = AIService()
     try:
         print(f"[DEBUG] /generate - test_cases count: {len(req.test_cases)}")
         if req.test_cases:
             print(f"[DEBUG] /generate - first test_case: {req.test_cases[0].id} - {req.test_cases[0].title[:50]}")
         print(f"[DEBUG] /generate - app_url: {req.app_url}")
-        return await ai.generate_scripts(req.test_cases, req.app_url)
+        print(f"[DEBUG] /generate - storage_state_path: {storage_state_path}")
+        return await ai.generate_scripts(req.test_cases, req.app_url, storage_state_path)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -308,63 +338,127 @@ async def generate(req: GenerateRequest) -> GenerateResponse:
 
 
 @router.post("/generate/stream")
-async def generate_stream(req: GenerateRequest):
+async def generate_stream(req: GenerateRequest, db: Session = Depends(get_db)):
     from fastapi.responses import StreamingResponse
     import json
     import asyncio
+    import datetime
+    
+    storage_state_path = None
+    if req.project_id:
+        project = get_project(db, req.project_id)
+        if project and getattr(project, 'requires_login', 1) == 1:
+            default_profile = get_default_login_profile(db, req.project_id)
+            if not default_profile or not default_profile.storage_state_path:
+                raise HTTPException(
+                    status_code=400,
+                    detail="项目需要登录态，但尚未生成会话。请先在「登录态配置」中生成会话后再生成脚本。"
+                )
+            if default_profile.valid_until:
+                now = datetime.datetime.now(datetime.timezone.utc)
+                valid_until_utc = default_profile.valid_until.astimezone(datetime.timezone.utc) if default_profile.valid_until.tzinfo else default_profile.valid_until.replace(tzinfo=datetime.timezone.utc)
+                if valid_until_utc < now:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="项目登录态会话已过期，请重新生成会话后再生成脚本。"
+                    )
+            storage_state_path = default_profile.storage_state_path
     
     ai = AIService()
     
     async def generate():
         try:
-            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': 'AI正在生成测试脚本...'})}\n\n"
+            total_cases = len(req.test_cases)
+            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': f'AI正在生成测试脚本... ({total_cases}条用例)'})}\n\n"
             await asyncio.sleep(0.01)
             
-            tc_json = json.dumps(
-                [tc.model_dump() for tc in req.test_cases], ensure_ascii=False, indent=2
-            )
-            
-            s = ai.settings
-            test_account = "未提供"
-            if s.test_username:
-                test_account = f"用户名: {s.test_username} / 密码: {s.test_password or '***'}"
-            
-            app_name = "应用系统"
-            if req.test_cases:
+            try:
+                cases = []
+                raw = ""
+                
+                yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': '正在准备生成所有脚本...'})}\n\n"
+                await asyncio.sleep(0.1)
+                
+                tc_json = json.dumps([tc.model_dump() for tc in req.test_cases], ensure_ascii=False, indent=2)
+                
+                s = ai.settings
+                test_account = "未提供"
+                if s.test_username:
+                    test_account = f"用户名: {s.test_username} / 密码: {s.test_password or '***'}"
+                
+                app_name = "应用系统"
                 modules = set()
-                for tc in req.test_cases:
-                    if tc.module:
-                        modules.add(tc.module)
+                for tc_item in req.test_cases:
+                    if tc_item.module:
+                        modules.add(tc_item.module)
                 if modules:
                     app_name = ", ".join(list(modules)[:3])
-            
-            from .prompts import GENERATE_PROMPT
-            prompt = GENERATE_PROMPT.format(
-                test_cases_json=tc_json,
-                app_name=app_name,
-                app_url=req.app_url or "未提供",
-                login_url=s.login_url or "未提供",
-                test_account=test_account,
-                test_username=s.test_username or "",
-                test_password=s.test_password or "",
-            )
-            
-            buffer = ""
-            async for chunk in ai.chat_stream(prompt):
-                buffer += chunk
-                yield f"data: {json.dumps({'type': 'progress', 'content': chunk, 'buffer_length': len(buffer)})}\n\n"
-            
-            text = buffer.strip()
-            if text.startswith("```"):
-                text = re.sub(r"^```(?:json)?\s*", "", text)
-                text = re.sub(r"\s*```$", "", text)
-            
-            try:
-                result = await ai.generate_scripts(req.test_cases, req.app_url)
+                
+                from .prompts import GENERATE_PROMPT
+                base_prompt = GENERATE_PROMPT.format(
+                    test_cases_json=tc_json,
+                    app_name=app_name,
+                    app_url=req.app_url or "未提供",
+                    login_url=s.login_url or "未提供",
+                    test_account=test_account,
+                    test_username=s.test_username or "",
+                    test_password=s.test_password or "",
+                    page_context="# 页面快照（暂未启用）",
+                )
+                
+                yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': f'正在调用AI生成{total_cases}条脚本...'})}\n\n"
+                await asyncio.sleep(0.1)
+                
+                tc_raw = await ai.chat(base_prompt)
+                raw += tc_raw + "\n"
+                
+                yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': 'AI响应完成，正在解析...'})}\n\n"
+                await asyncio.sleep(0.1)
+                
+                try:
+                    data = ai._parse_json(tc_raw)
+                    scripts = data.get("scripts", [])
+                    if scripts:
+                        from .stability_checker import StabilityChecker
+                        checker = StabilityChecker()
+                        
+                        for i, c in enumerate(scripts):
+                            tc = req.test_cases[i] if i < len(req.test_cases) else None
+                            script = ai._strip_code_fence(c.get("script", ""))
+                            
+                            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': f'正在进行稳定性检测 ({i+1}/{len(scripts)})...'})}\n\n"
+                            await asyncio.sleep(0.1)
+                            
+                            stability_check_result = checker.analyze(script, c.get("case_title", tc.title if tc else ""))
+                            
+                            cases.append({
+                                "title": c.get("case_title", tc.title if tc else ""),
+                                "module": c.get("module", tc.module or "" if tc else ""),
+                                "priority": c.get("priority", tc.priority if tc else "P1"),
+                                "precondition": "",
+                                "steps": [],
+                                "expected": "",
+                                "script": script,
+                                "stability_score": stability_check_result.get("overall_score", 80),
+                                "stability_checks": stability_check_result.get("checks"),
+                                "stability_issues": stability_check_result.get("issues", []),
+                            })
+                            
+                            score = stability_check_result.get("overall_score", 80)
+                            msg = f"稳定性检测完成，得分{score}"
+                            yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': msg})}\n\n"
+                            await asyncio.sleep(0.1)
+                    else:
+                        yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': '未生成任何脚本'})}\n\n"
+                        await asyncio.sleep(0.1)
+                except Exception as e:
+                    yield f"data: {json.dumps({'type': 'progress', 'content': '', 'buffer_length': 0, 'message': f'脚本解析失败 - {str(e)}'})}\n\n"
+                    await asyncio.sleep(0.1)
+                
                 result_dict = {
                     "type": "complete",
-                    "cases": [c.model_dump() for c in result.cases],
-                    "raw": text,
+                    "cases": cases,
+                    "raw": raw,
                 }
                 yield f"data: {json.dumps(result_dict, ensure_ascii=False)}\n\n"
             except Exception as e:
@@ -418,19 +512,22 @@ async def review(req: ReviewRequest) -> ReviewResponse:
 @router.get("/projects")
 async def list_projects(db: Session = Depends(get_db)):
     projects = get_projects(db)
-    return [
-        {
+    results = []
+    for p in projects:
+        login_state_status = get_project_login_state_status(db, p.id)
+        results.append({
             "id": p.id,
             "name": p.name,
             "description": p.description,
             "appUrl": p.app_url,
             "dim": p.dim,
             "techStack": p.tech_stack,
+            "requiresLogin": getattr(p, 'requires_login', 1),
+            "loginStateStatus": login_state_status,
             "createdAt": p.created_at,
             "updatedAt": p.updated_at
-        }
-        for p in projects
-    ]
+        })
+    return results
 
 
 @router.post("/projects")
@@ -442,9 +539,11 @@ async def add_project(
     if existing:
         raise HTTPException(status_code=400, detail="项目名称已存在")
     
-    project = create_project(db, req.name, req.description, req.appUrl, req.dim, req.techStack)
+    project = create_project(db, req.name, req.description, req.appUrl, req.dim, req.techStack, req.requiresLogin)
     if not project:
         raise HTTPException(status_code=400, detail="创建项目失败")
+    
+    login_state_status = get_project_login_state_status(db, project.id)
     
     return {
         "id": project.id,
@@ -453,6 +552,8 @@ async def add_project(
         "appUrl": project.app_url,
         "dim": project.dim,
         "techStack": project.tech_stack,
+        "requiresLogin": project.requires_login,
+        "loginStateStatus": login_state_status,
         "createdAt": project.created_at
     }
 
@@ -463,6 +564,8 @@ async def get_project_detail(project_id: int, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
     
+    login_state_status = get_project_login_state_status(db, project_id)
+    
     return {
         "id": project.id,
         "name": project.name,
@@ -470,6 +573,8 @@ async def get_project_detail(project_id: int, db: Session = Depends(get_db)):
         "appUrl": project.app_url,
         "dim": project.dim,
         "techStack": project.tech_stack,
+        "requiresLogin": getattr(project, 'requires_login', 1),
+        "loginStateStatus": login_state_status,
         "createdAt": project.created_at,
         "updatedAt": project.updated_at
     }
@@ -483,6 +588,7 @@ async def update_project_detail(
     appUrl: Optional[str] = Body(default=None),
     dim: Optional[str] = Body(default=None),
     techStack: Optional[str] = Body(default=None),
+    requiresLogin: Optional[int] = Body(default=None),
     db: Session = Depends(get_db)
 ):
     project = get_project(db, project_id)
@@ -500,8 +606,13 @@ async def update_project_detail(
         update_data["dim"] = dim
     if techStack is not None:
         update_data["tech_stack"] = techStack
+    if requiresLogin is not None:
+        update_data["requires_login"] = requiresLogin
     
     updated = update_project(db, project_id, **update_data)
+    
+    login_state_status = get_project_login_state_status(db, project_id)
+    
     return {
         "id": updated.id,
         "name": updated.name,
@@ -509,6 +620,8 @@ async def update_project_detail(
         "appUrl": updated.app_url,
         "dim": updated.dim,
         "techStack": updated.tech_stack,
+        "requiresLogin": getattr(updated, 'requires_login', 1),
+        "loginStateStatus": login_state_status,
         "updatedAt": updated.updated_at
     }
 
@@ -645,7 +758,8 @@ async def list_test_cases(
                 "updatedAt": c.updated_at,
                 "stabilityScore": getattr(c, 'stability_score', 0) or 0,
                 "loginMode": getattr(c, 'login_mode', 'global') or 'global',
-                "loginRole": getattr(c, 'login_role', None)
+                "loginRole": getattr(c, 'login_role', None),
+                "version": getattr(c, 'version', 1) or 1,
             }
             for c in cases
         ],
@@ -669,7 +783,7 @@ async def add_test_case(
     case = create_test_case(
         db, project_id, body.title, body.module, body.priority, body.precondition,
         body.steps, body.expected, body.script, body.scriptPath, body.requirementId,
-        body.loginMode, body.loginRole
+        body.loginMode, body.loginRole, body.stabilityScore
     )
     return {
         "id": case.id,
@@ -918,20 +1032,27 @@ async def generate_project_review(project_id: int, db: Session = Depends(get_db)
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
 
-    cases, _ = get_test_cases(db, project_id)
+    # 只取最新一次需求分析（按 id 降序），避免历史需求污染评审范围
+    requirements = get_requirements(db, project_id)
+    if not requirements:
+        raise HTTPException(status_code=400, detail="项目没有需求分析结果，请先进行需求分析")
+
+    latest_req = max(requirements, key=lambda r: r.id)
+    if not (latest_req.analysis_result and latest_req.analysis_result.get("feature_points")):
+        raise HTTPException(status_code=400, detail="最新需求没有需求分析结果，请先进行需求分析")
+
+    feature_points = latest_req.analysis_result["feature_points"]
+    req_source = latest_req.title or ""
+
+    # 只评审与最新需求关联的用例；若没有关联用例则回退到项目全部用例
+    cases = db.query(TestCase).filter(
+        TestCase.project_id == project_id,
+        TestCase.requirement_id == latest_req.id
+    ).all()
+    if not cases:
+        cases, _ = get_test_cases(db, project_id)
     if not cases:
         raise HTTPException(status_code=400, detail="项目没有测试用例，请先生成用例")
-
-    requirements = get_requirements(db, project_id)
-    feature_points = []
-    req_source = ""
-    for req in requirements:
-        if req.analysis_result and req.analysis_result.get("feature_points"):
-            feature_points.extend(req.analysis_result["feature_points"])
-            req_source = req.title or req_source
-
-    if not feature_points:
-        raise HTTPException(status_code=400, detail="项目没有需求分析结果，请先进行需求分析")
 
     ai_cases = []
     case_id_list = []
@@ -1831,14 +1952,16 @@ async def generate_login_session(profile_id: int, db: Session = Depends(get_db))
             "screenshots": result["screenshots"],
         }
     else:
+        error_info = result.get("error")
+        error_message = error_info["message"] if isinstance(error_info, dict) else (error_info or "登录会话生成失败")
         return {
             "success": False,
-            "message": result["error"] or "登录会话生成失败",
+            "message": error_message,
             "duration_ms": result.get("duration_ms", 0),
             "stdout": result.get("stdout", ""),
             "stderr": result.get("stderr", ""),
             "screenshots": result.get("screenshots", []),
-            "error": result.get("error"),
+            "error": error_info,
         }
 
 

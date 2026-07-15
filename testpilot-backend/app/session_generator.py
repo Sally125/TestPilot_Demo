@@ -164,6 +164,21 @@ class LoginSessionGenerator:
         # 显式设置 testDir 为 work_dir，避免 Playwright 扫描到项目根目录下的其他 spec 文件
         # 使用绝对路径确保跨目录运行时正确解析
         safe_work_dir = str(work_dir).replace("\\", "/")
+        
+        # 检查代理配置
+        proxy_config = ""
+        import os
+        proxy_server = os.environ.get("PLAYWRIGHT_PROXY_SERVER")
+        proxy_username = os.environ.get("PLAYWRIGHT_PROXY_USERNAME")
+        proxy_password = os.environ.get("PLAYWRIGHT_PROXY_PASSWORD")
+        if proxy_server:
+            proxy_parts = [f"server: '{proxy_server}'"]
+            if proxy_username:
+                proxy_parts.append(f"username: '{proxy_username}'")
+            if proxy_password:
+                proxy_parts.append(f"password: '{proxy_password}'")
+            proxy_config = f"\n    proxy: {{{', '.join(proxy_parts)}}},"
+        
         config_content = f"""import {{ defineConfig }} from '@playwright/test';
 
 export default defineConfig({{
@@ -172,7 +187,7 @@ export default defineConfig({{
   use: {{
     browserName: '{self.settings.browser_type}',
     screenshot: 'on',
-    video: 'retain-on-failure',
+    video: 'retain-on-failure',{proxy_config}
   }},
 }});
 """
@@ -269,8 +284,15 @@ export default defineConfig({{
         cmd = self._build_command(spec_rel, run_dir, timeout)
         proc_timeout = int((timeout or 60000) / 1000 + 60)
 
+        logger.info(f"[SESSION-GEN] 开始执行登录脚本")
+        logger.info(f"[SESSION-GEN] 命令: {' '.join(cmd)}")
+        logger.info(f"[SESSION-GEN] 工作目录: {playwright_root}")
+        logger.info(f"[SESSION-GEN] 脚本文件: {spec_file}")
+        logger.info(f"[SESSION-GEN] 超时时间: {proc_timeout}s")
+
         start = time.time()
         try:
+            logger.info(f"[SESSION-GEN] 启动 subprocess...")
             proc = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -278,6 +300,8 @@ export default defineConfig({{
                 timeout=proc_timeout,
                 cwd=str(playwright_root),
             )
+            logger.info(f"[SESSION-GEN] subprocess 完成，返回码: {proc.returncode}")
+            logger.info(f"[SESSION-GEN] 执行耗时: {int((time.time() - start) * 1000)}ms")
             duration_ms = int((time.time() - start) * 1000)
             success = proc.returncode == 0 and storage_file.exists()
 
@@ -286,6 +310,8 @@ export default defineConfig({{
             for pattern in ["*.png", "test-results/**/*.png", ".test-results/**/*.png"]:
                 screenshots.extend(str(p) for p in run_dir.glob(pattern))
 
+            error_info = None if success else self._extract_error(proc.stderr, proc.stdout)
+            
             result = {
                 "success": success,
                 "storageStatePath": storage_state_path if success else None,
@@ -293,13 +319,23 @@ export default defineConfig({{
                 "stdout": proc.stdout[-4000:] if len(proc.stdout) > 4000 else proc.stdout,
                 "stderr": proc.stderr[-4000:] if len(proc.stderr) > 4000 else proc.stderr,
                 "screenshots": screenshots,
-                "error": None if success else self._extract_error(proc.stderr, proc.stdout),
+                "error": error_info,
             }
-            if not success and not result["error"]:
+            if not success and not error_info:
                 if not storage_file.exists():
-                    result["error"] = "登录脚本执行完成，但 storageState 文件未生成（可能登录失败）"
+                    result["error"] = {
+                        "type": "login_failed",
+                        "message": "登录脚本执行完成，但 storageState 文件未生成",
+                        "suggestion": "可能登录失败，请检查账号密码是否正确，或登录成功后的跳转是否符合预期",
+                        "details": []
+                    }
                 else:
-                    result["error"] = "登录脚本执行失败"
+                    result["error"] = {
+                        "type": "unknown",
+                        "message": "登录脚本执行失败",
+                        "suggestion": "请检查登录页面URL和选择器配置是否正确",
+                        "details": []
+                    }
             return result
         except subprocess.TimeoutExpired:
             duration_ms = int((time.time() - start) * 1000)
@@ -310,7 +346,12 @@ export default defineConfig({{
                 "stdout": "",
                 "stderr": "执行超时",
                 "screenshots": [],
-                "error": f"登录脚本执行超时（{proc_timeout}s）",
+                "error": {
+                    "type": "timeout",
+                    "message": f"登录脚本执行超时（{proc_timeout}s）",
+                    "suggestion": "脚本执行时间过长，请检查网络连接或登录页面响应速度",
+                    "details": []
+                },
             }
         except FileNotFoundError:
             return {
@@ -335,16 +376,61 @@ export default defineConfig({{
             }
 
     @staticmethod
-    def _extract_error(stderr: str, stdout: str) -> str:
-        """从输出中提取关键错误信息"""
-        lines = (stderr + "\n" + stdout).split("\n")
-        error_lines = []
+    def _extract_error(stderr: str, stdout: str) -> dict:
+        """从输出中提取关键错误信息，并分类为选择器问题或其他问题"""
+        full_output = stderr + "\n" + stdout
+        lines = full_output.split("\n")
+        
+        error_info = {
+            "type": "unknown",
+            "message": "登录脚本执行失败",
+            "suggestion": "请检查登录页面URL和选择器配置是否正确",
+            "details": []
+        }
+        
         for line in lines:
             line = line.strip()
             if not line:
                 continue
             if any(kw in line.lower() for kw in ["error", "failed", "timeout", "locator", "not found", "exception"]):
-                error_lines.append(line)
-                if len(error_lines) >= 5:
+                error_info["details"].append(line)
+                if len(error_info["details"]) >= 5:
                     break
-        return "\n".join(error_lines) if error_lines else "登录脚本执行失败，请检查凭证和选择器配置"
+        
+        details_str = "\n".join(error_info["details"])
+        
+        if "locator.waitFor" in details_str or "getByPlaceholder" in details_str:
+            error_info["type"] = "selector"
+            if "username" in details_str.lower() or "邮箱" in details_str or "email" in details_str:
+                error_info["message"] = "无法找到用户名输入框"
+                error_info["suggestion"] = "请检查登录页面上的用户名输入框，确认其 placeholder 包含「用户名」「邮箱」「email」「username」等关键词，或在选择器配置中手动指定用户名输入框的选择器"
+            elif "password" in details_str.lower():
+                error_info["message"] = "无法找到密码输入框"
+                error_info["suggestion"] = "请检查登录页面上的密码输入框，确认其 placeholder 包含「密码」「password」等关键词，或在选择器配置中手动指定密码输入框的选择器"
+            elif "button" in details_str.lower() or "submit" in details_str.lower():
+                error_info["message"] = "无法找到登录按钮"
+                error_info["suggestion"] = "请检查登录页面上的登录按钮，确认其包含「登录」「sign in」「log in」等文字，或在选择器配置中手动指定登录按钮的选择器"
+            else:
+                error_info["message"] = "无法定位页面元素"
+                error_info["suggestion"] = "请检查登录页面URL是否正确，页面是否能正常加载，以及选择器配置是否正确"
+        elif "TimeoutError" in details_str:
+            error_info["type"] = "timeout"
+            if "waitForURL" in details_str:
+                error_info["message"] = "登录后跳转超时"
+                error_info["suggestion"] = "请检查登录成功后的跳转URL是否正确，或延长成功判断的超时时间。可能原因：登录失败、跳转URL配置错误、网络延迟"
+            else:
+                error_info["message"] = "操作超时"
+                error_info["suggestion"] = "页面加载或操作超时，请检查网络连接或登录页面响应速度"
+        elif "Error: page.goto" in details_str or "net::ERR" in details_str:
+            error_info["type"] = "network"
+            error_info["message"] = "无法访问登录页面"
+            error_info["suggestion"] = "请检查登录页面URL是否正确，网络是否能访问该地址"
+        elif "fill" in details_str and ("not visible" in details_str or "disabled" in details_str):
+            error_info["type"] = "interaction"
+            error_info["message"] = "无法填写表单"
+            error_info["suggestion"] = "输入框可能被遮挡、不可见或被禁用，请检查登录页面的表单状态"
+        
+        if not error_info["details"]:
+            error_info["message"] = "登录脚本执行失败，请检查凭证和选择器配置"
+        
+        return error_info
