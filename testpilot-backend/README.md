@@ -22,6 +22,8 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 2. 创建 API Key
 3. 替换 `DEEPSEEK_API_KEY` 的值
 
+> **提示**：若暂未配置 API Key，可直接查看项目中的演示视频，快速了解系统功能与使用流程。
+
 ### 2. 安装依赖
 
 ```bash
